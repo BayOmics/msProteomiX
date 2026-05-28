@@ -1,0 +1,47 @@
+Package: msProteomiX
+Title: Multi-Engine Mass Spectrometry Proteomics Data Processing
+Version: 0.1.0
+Authors@R: 
+    person("Xi", "Wang", email = "wangxi@bayomics.com", role = c("aut", "cre"))
+Description: A comprehensive R package for processing and visualizing mass 
+    spectrometry proteomics data from multiple search engines including FragPipe, 
+    MaxQuant, Proteome Discoverer, and DIA-NN. Supports standard DDA proteomics, 
+    AP-MS (affinity purification), and phosphoproteomics workflows. Designed for 
+    interactive use in RStudio with user-friendly Chinese-language guided scripts.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends: 
+    R (>= 4.1.0)
+Imports:
+    dplyr,
+    readr,
+    stringr,
+    ggplot2,
+    ggrepel,
+    reshape2,
+    scales,
+    tibble,
+    stats,
+    utils,
+    grDevices
+Suggests:
+    limma,
+    ggvenn,
+    UpSetR,
+    Biostrings,
+    clusterProfiler,
+    org.Hs.eg.db,
+    org.Mm.eg.db,
+    gridExtra,
+    grid,
+    BiocManager,
+    devtools,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+URL: https://github.com/BayOmics/msProteomiX
+BugReports: https://github.com/BayOmics/msProteomiX/issues

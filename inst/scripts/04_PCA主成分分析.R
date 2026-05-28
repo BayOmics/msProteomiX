@@ -1,0 +1,20 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║       msProteomiX — 步骤 4: PCA 主成分分析                  ║
+# ╠══════════════════════════════════════════════════════════════╣
+# ║                                                              ║
+# ║  【前置条件】已运行 01_数据导入与分组.R                     ║
+# ║  【操作】点击 Source 按钮即可                                ║
+# ║  【输出】output/PCA_*.pdf + .csv                            ║
+# ║                                                              ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+library(msProteomiX)
+check_prerequisites("01")
+
+plot_pca(
+  ms_data      = .msProteomiX_env$ms_data,
+  group_info   = .msProteomiX_env$group_info,
+  project_name = "Project"
+)
+
+message("\n  Done! Check the output/ folder.")

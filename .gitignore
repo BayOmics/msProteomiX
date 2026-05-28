@@ -1,0 +1,33 @@
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Package build
+*.tar.gz
+*.Rcheck/
+src/*.o
+src/*.so
+src/*.dll
+
+# Data (not tracked)
+data-raw/*.tsv
+data-raw/*.fasta
+inst/extdata/**/*.tsv
+inst/extdata/**/*.fasta
+
+# Output
+output/
+*.pdf
+*.png
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+test_validation.R
+test_output/

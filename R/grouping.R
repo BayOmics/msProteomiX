@@ -28,7 +28,7 @@ interactive_grouping <- function(sample_names, group_file = NULL, context = "Ana
   # --- 尝试读取已有分组文件 ---
   if (!is.null(group_file) && file.exists(group_file)) {
     old_groups <- tryCatch(
-      readr::read_csv(group_file, show_col_types = FALSE),
+      utils::read.csv(group_file, stringsAsFactors = FALSE, check.names = FALSE),
       error = function(e) NULL
     )
 
@@ -78,7 +78,7 @@ interactive_grouping <- function(sample_names, group_file = NULL, context = "Ana
   if (!is.null(group_file)) {
     group_dir <- dirname(group_file)
     if (!dir.exists(group_dir)) dir.create(group_dir, recursive = TRUE)
-    readr::write_csv(result, group_file)
+    utils::write.csv(result, group_file, row.names = FALSE)
     message(paste0("  Group info saved to: ", group_file))
   }
 
@@ -105,7 +105,7 @@ read_group_info <- function(file_path) {
     stop("Group file not found: ", file_path,
          "\nPlease run 01_data_import_and_grouping.R first.")
   }
-  df <- readr::read_csv(file_path, show_col_types = FALSE)
+  df <- utils::read.csv(file_path, stringsAsFactors = FALSE, check.names = FALSE)
   if (!all(c("sample_name", "user_group") %in% colnames(df))) {
     stop("Invalid group file format: missing sample_name or user_group column.")
   }

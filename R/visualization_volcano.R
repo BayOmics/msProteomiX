@@ -43,12 +43,13 @@ plot_volcano <- function(diff_result,
   # Top labels
   top_labels <- data.frame()
   if (!is.null(label_col) && label_top > 0) {
+    # 按 |logFC| 降序排列 (标注变化最大的蛋白)
     top_up <- diff_result[diff_result$diff == "UP", ]
-    top_up <- top_up[order(top_up[[p_col]]), ]
+    top_up <- top_up[order(-abs(top_up$logFC)), ]
     top_up <- utils::head(top_up, label_top)
 
     top_down <- diff_result[diff_result$diff == "DOWN", ]
-    top_down <- top_down[order(top_down[[p_col]]), ]
+    top_down <- top_down[order(-abs(top_down$logFC)), ]
     top_down <- utils::head(top_down, label_top)
 
     top_labels <- rbind(top_up, top_down)
@@ -91,7 +92,7 @@ plot_volcano <- function(diff_result,
   # 保存
   fname_base <- file.path(output_dir, paste0(project_name, "_Volcano_", contrast))
   ggplot2::ggsave(paste0(fname_base, ".pdf"), p, width = 8, height = 7)
-  readr::write_csv(diff_result, paste0(fname_base, ".csv"))
+  utils::write.csv(diff_result, paste0(fname_base, ".csv"), row.names = FALSE)
   message(paste("  Results saved:", fname_base))
 
   p

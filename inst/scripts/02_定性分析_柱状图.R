@@ -6,7 +6,9 @@
 # ║                                                              ║
 # ║  【操作】点击 Source 按钮即可                                ║
 # ║                                                              ║
-# ║  【输出】output/Identification_ProteinGroups.pdf + .csv     ║
+# ║  【输出】output/Identification_Protein Groups.pdf          ║
+# ║         output/Identification_Peptides.pdf              ║
+# ║         output/Identification_PSMs.pdf + .csv           ║
 # ║                                                              ║
 # ╚══════════════════════════════════════════════════════════════╝
 
@@ -17,6 +19,7 @@ check_prerequisites("01")
 plot_id_barplot(
   ms_data      = .msProteomiX_env$ms_data,
   group_info   = .msProteomiX_env$group_info,
+  target       = "all",
   project_name = "Project"
 )
 

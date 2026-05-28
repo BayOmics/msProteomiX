@@ -136,7 +136,7 @@ save_plot_and_data <- function(plot_obj, data_df, project_name, suffix,
   base_name <- file.path(output_dir, paste0(project_name, "_", suffix))
 
   # 保存 CSV
-  readr::write_csv(data_df, paste0(base_name, ".csv"))
+  utils::write.csv(data_df, paste0(base_name, ".csv"), row.names = FALSE)
 
   # 保存 PDF (仅 ggplot 对象)
   if ("ggplot" %in% class(plot_obj)) {

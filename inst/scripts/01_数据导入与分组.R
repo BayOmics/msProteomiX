@@ -4,9 +4,10 @@
 # ║                                                              ║
 # ║  【操作步骤】                                                ║
 # ║   1. 将搜库软件的结果文件夹放入 wkdir/ 目录                 ║
-# ║      • FragPipe:  复制整个输出文件夹                        ║
-# ║      • MaxQuant:  复制 txt/ 文件夹                          ║
-# ║      • DIA-NN:    复制 report.pg_matrix.tsv                 ║
+# ║      • FragPipe:    复制整个输出文件夹                      ║
+# ║      • Spectronaut: 复制 *_Report.tsv (Run Pivot 导出)      ║
+# ║      • MaxQuant:    复制 txt/ 文件夹                        ║
+# ║      • DIA-NN:      复制 report.pg_matrix.tsv               ║
 # ║                                                              ║
 # ║   2. 在 RStudio 中点击右上角 "Source" 按钮运行              ║
 # ║                                                              ║
@@ -29,7 +30,7 @@ library(msProteomiX)
 
 # ━━━━━━━━━━━━━━━━━ 用户设置 (可修改) ━━━━━━━━━━━━━━━━━
 data_dir <- "wkdir"            # 数据文件夹路径
-engine   <- "auto"             # 搜库引擎: "auto", "fragpipe", "maxquant", "pd", "diann"
+engine   <- "auto"             # 搜库引擎: "auto", "fragpipe", "spectronaut", "maxquant", "pd", "diann"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # --- 主程序 (不需要修改) ---

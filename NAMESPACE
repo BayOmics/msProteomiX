@@ -4,6 +4,7 @@
 export(read_ms_data)
 export(detect_engine)
 export(parse_fragpipe)
+export(parse_spectronaut)
 export(interactive_grouping)
 export(read_group_info)
 export(set_groups)

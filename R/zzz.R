@@ -15,7 +15,7 @@
   packageStartupMessage(
     "=== msProteomiX v", utils::packageVersion(pkgname), " ===\n",
     "Multi-Engine Mass Spectrometry Proteomics Data Processing\n",
-    "Supported engines: FragPipe | MaxQuant (soon) | PD (soon) | DIA-NN (soon)\n",
+    "Supported engines: FragPipe | Spectronaut | MaxQuant (soon) | PD (soon) | DIA-NN (soon)\n",
     "Type ?read_ms_data to get started."
   )
 }

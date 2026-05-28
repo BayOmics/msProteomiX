@@ -821,13 +821,15 @@ parse_diann <- function(path) {
 }
 
 #' 读取 TSV/CSV 文件
+#'
+#' 使用 base R 读取，避免 readr/vroom 在 Apple Silicon RStudio 上的内存问题
 #' @keywords internal
 .read_omics_file <- function(fpath) {
   if (grepl("\\.csv$", fpath, ignore.case = TRUE)) {
-    readr::read_csv(fpath, show_col_types = FALSE)
+    utils::read.csv(fpath, stringsAsFactors = FALSE, check.names = FALSE)
   } else {
-    readr::read_delim(fpath, delim = "\t", escape_double = FALSE,
-                      trim_ws = TRUE, show_col_types = FALSE)
+    utils::read.delim(fpath, sep = "\t", stringsAsFactors = FALSE,
+                      check.names = FALSE, strip.white = TRUE)
   }
 }
 

@@ -207,7 +207,7 @@ check_prerequisites <- function(step = "01") {
       }
     } else {
       # 解析序号
-      idx <- tryCatch({
+      idx <- suppressWarnings(tryCatch({
         parts <- unlist(strsplit(input_str, "[,\uff0c]"))
         vec <- c()
         for (p in parts) {
@@ -220,7 +220,7 @@ check_prerequisites <- function(step = "01") {
           }
         }
         unique(vec[!is.na(vec) & vec > 0 & vec <= length(sample_names)])
-      }, error = function(e) NULL)
+      }, error = function(e) NULL))
 
       if (length(idx) > 0) {
         cat(sprintf("  Selected %d samples.\n", length(idx)))

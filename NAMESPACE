@@ -4,6 +4,7 @@
 export(read_ms_data)
 export(setup_workdir)
 export(create_project)
+export(.msProteomiX_env)
 export(detect_engine)
 export(parse_fragpipe)
 export(parse_spectronaut)

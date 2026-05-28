@@ -166,7 +166,7 @@ parse_fragpipe <- function(path) {
   }
 
   # 构建蛋白定量矩阵
-  proteins <- as.data.frame(lapply(prot_df[, quant_cols, drop = FALSE], as.numeric))
+  proteins <- as.data.frame(lapply(prot_df[, quant_cols, drop = FALSE], function(x) suppressWarnings(as.numeric(x))))
   colnames(proteins) <- sample_names
   rownames(proteins) <- NULL
 

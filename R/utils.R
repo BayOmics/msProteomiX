@@ -104,6 +104,12 @@ new_MsDataSet <- function(proteins = data.frame(),
                            protein_info = data.frame(),
                            engine = "unknown",
                            quant_type = "LFQ") {
+  # Normalize tibble → data.frame to prevent subsetting gotchas
+  protein_info <- as.data.frame(protein_info, stringsAsFactors = FALSE)
+
+  # Detect if data is already log2-transformed (e.g. Spectronaut PG.Log2Quantity)
+  is_log2 <- grepl("Log2", quant_type, ignore.case = TRUE)
+
   obj <- list(
     proteins     = proteins,
     peptides     = peptides,
@@ -112,7 +118,8 @@ new_MsDataSet <- function(proteins = data.frame(),
     sample_names = sample_names,
     protein_info = protein_info,
     engine       = engine,
-    quant_type   = quant_type
+    quant_type   = quant_type,
+    is_log2      = is_log2
   )
   class(obj) <- "MsDataSet"
   obj
@@ -125,7 +132,8 @@ new_MsDataSet <- function(proteins = data.frame(),
 print.MsDataSet <- function(x, ...) {
   cat("== MsDataSet ==\n")
   cat(sprintf("  Engine:       %s\n", x$engine))
-  cat(sprintf("  Quant Type:   %s\n", x$quant_type))
+  cat(sprintf("  Quant Type:   %s%s\n", x$quant_type,
+              if (isTRUE(x$is_log2)) " (log2)" else ""))
   cat(sprintf("  Samples:      %d\n", length(x$sample_names)))
   cat(sprintf("  Proteins:     %d\n", nrow(x$proteins)))
   if (nrow(x$peptides) > 0) cat(sprintf("  Peptides:     %d\n", nrow(x$peptides)))

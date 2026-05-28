@@ -39,9 +39,14 @@ run_diff_analysis <- function(ms_data, group_info,
   grp_vec <- group_info$user_group[match(valid_samples, group_info$sample_name)]
   expr_sub <- expr_matrix[, valid_samples, drop = FALSE]
 
-  # Log2 转换
+  # Log2 转换 (跳过已经是 log2 的数据, 如 Spectronaut PG.Log2Quantity)
   expr_sub[expr_sub == 0] <- NA
-  expr_log2 <- log2(as.matrix(expr_sub))
+  if (isTRUE(ms_data$is_log2)) {
+    expr_log2 <- as.matrix(expr_sub)
+    message("  ℹ️ Data is already log2-transformed, skipping log2 conversion.")
+  } else {
+    expr_log2 <- log2(as.matrix(expr_sub))
+  }
 
   # 分组因子
   grps <- factor(grp_vec)

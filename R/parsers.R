@@ -286,11 +286,6 @@ parse_spectronaut <- function(path) {
   raw_cols <- colnames(df)
 
   # --- 识别 PG. 元数据列 ---
-  pg_meta_patterns <- c("^PG\\.", "^PG\\.ProteinGroups$", "^PG\\.ProteinAccessions$",
-                         "^PG\\.Genes$", "^PG\\.ProteinDescriptions$",
-                         "^PG\\.ProteinNames$", "^PG\\.UniProtIds$",
-                         "^PG\\.FastaFiles$", "^PG\\.Qvalue$",
-                         "^PG\\.MolecularWeight$")
   is_pg_col <- grepl("^PG\\.", raw_cols)
 
   # --- 提取定量列和样本名 ---
@@ -314,13 +309,22 @@ parse_spectronaut <- function(path) {
 
   # --- 构建蛋白定量矩阵 ---
   proteins <- as.data.frame(lapply(df[, quant_cols, drop = FALSE], function(x) {
-    # Spectronaut 用 NaN 表示缺失值
-    x <- as.numeric(x)
+    # Spectronaut 用 NaN 表示缺失值; "Filtered" 也可能出现
+    x <- suppressWarnings(as.numeric(x))
     x[is.nan(x)] <- NA
     x
   }))
   colnames(proteins) <- sample_names
   rownames(proteins) <- NULL
+
+  # --- 过滤全 NA 行 (所有样本均无定量值的蛋白) ---
+  valid_rows <- rowSums(!is.na(proteins)) > 0
+  if (any(!valid_rows)) {
+    n_removed <- sum(!valid_rows)
+    message(sprintf("  ℹ️ 移除 %d 个全缺失蛋白", n_removed))
+    proteins <- proteins[valid_rows, , drop = FALSE]
+    df <- df[valid_rows, , drop = FALSE]
+  }
 
   # --- 构建蛋白注释信息 ---
   info_col_map <- c(
@@ -336,6 +340,27 @@ parse_spectronaut <- function(path) {
   avail_info <- intersect(names(info_col_map), raw_cols)
   protein_info <- df[, avail_info, drop = FALSE]
   colnames(protein_info) <- info_col_map[avail_info]
+
+  # --- C2 修复: 确保 Protein 列存在 (下游函数依赖) ---
+  if (!("Protein" %in% colnames(protein_info))) {
+    if ("Protein ID" %in% colnames(protein_info)) {
+      protein_info$Protein <- protein_info$`Protein ID`
+    } else if ("Entry Name" %in% colnames(protein_info)) {
+      protein_info$Protein <- protein_info$`Entry Name`
+    } else if ("Gene" %in% colnames(protein_info)) {
+      protein_info$Protein <- protein_info$Gene
+    }
+  }
+  if (!("Protein ID" %in% colnames(protein_info))) {
+    if ("Protein" %in% colnames(protein_info)) {
+      protein_info$`Protein ID` <- protein_info$Protein
+    }
+  }
+
+  # --- H1 修复: Gene 列去除 trailing 分号 ---
+  if ("Gene" %in% colnames(protein_info)) {
+    protein_info$Gene <- stringr::str_remove(protein_info$Gene, ";+$")
+  }
 
   # 构建标签名 (用于火山图标注)
   protein_info$Label_Name <- .build_sn_label_name(df, raw_cols)

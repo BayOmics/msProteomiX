@@ -34,7 +34,7 @@ setup_workdir()
 
 # ━━━━━━━━━━━━━━━━━ 用户设置 (可修改) ━━━━━━━━━━━━━━━━━
 data_dir <- "wkdir"            # 数据文件夹路径 (在脚本旁边)
-engine   <- "auto"             # 搜库引擎: "auto", "fragpipe", "spectronaut", "maxquant", "pd", "diann"
+engine   <- "fragpipe"             # 搜库引擎: "auto", "fragpipe", "spectronaut", "maxquant", "pd", "diann"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # --- 主程序 (不需要修改) ---

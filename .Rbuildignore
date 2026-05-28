@@ -1,2 +1,5 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+inst/scripts/wkdir
+inst/scripts/output
+搜库软件输出结果demo

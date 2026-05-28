@@ -9,12 +9,77 @@
 #' @description 用于在 RStudio Source 模式下跨脚本传递数据
 #' @keywords internal
 .msProteomiX_env <- new.env(parent = emptyenv())
-
-#' 自动定位工作目录到脚本所在文件夹
+#' 创建 msProteomiX 分析项目
 #'
-#' 在 RStudio 中运行时，自动将工作目录切换到当前脚本所在的文件夹。
-#' 确保 wkdir/ 和 output/ 始终在脚本旁边创建，
-#' 避免用户因工作目录不同导致找不到文件。
+#' 在指定目录创建标准项目结构，并从包中复制所有分析脚本。
+#' 项目目录结构:
+#' \preformatted{
+#'   <project_dir>/
+#'   ├── scripts/     ← 分析脚本 (从包复制)
+#'   ├── wkdir/       ← 搜库结果文件放这里
+#'   └── output/      ← 分析结果自动保存在这里
+#' }
+#'
+#' @param project_dir 项目目录路径 (如 "~/my_project")
+#' @return 不可见地返回项目路径
+#' @export
+#' @examples
+#' \dontrun{
+#' # 创建项目
+#' create_project("~/Desktop/HeLa_APMS_2025")
+#' # 然后在 RStudio 中打开 scripts/ 里的脚本, Source 运行即可
+#' }
+create_project <- function(project_dir) {
+  project_dir <- normalizePath(project_dir, mustWork = FALSE)
+
+  # 创建目录结构
+  dirs <- c(
+    file.path(project_dir, "scripts"),
+    file.path(project_dir, "wkdir"),
+    file.path(project_dir, "output")
+  )
+  for (d in dirs) {
+    if (!dir.exists(d)) dir.create(d, recursive = TRUE)
+  }
+
+  # 复制脚本
+  pkg_scripts <- system.file("scripts", package = "msProteomiX")
+  if (nchar(pkg_scripts) == 0) {
+    stop("\u274c \u627e\u4e0d\u5230 msProteomiX \u5305\u7684\u811a\u672c\u76ee\u5f55\u3002\u8bf7\u786e\u4fdd\u5df2\u5b89\u88c5\u5305\u3002")
+  }
+
+  script_files <- list.files(pkg_scripts, full.names = TRUE)
+  n_copied <- 0
+  for (f in script_files) {
+    dest <- file.path(project_dir, "scripts", basename(f))
+    if (!file.exists(dest)) {
+      file.copy(f, dest)
+      n_copied <- n_copied + 1
+    }
+  }
+
+  message(sprintf("\n\u2705 \u9879\u76ee\u5df2\u521b\u5efa: %s", project_dir))
+  message(sprintf("   scripts/  \u2190 %d \u4e2a\u5206\u6790\u811a\u672c", n_copied))
+  message("   wkdir/    \u2190 \u5c06\u641c\u5e93\u7ed3\u679c\u653e\u5165\u6b64\u76ee\u5f55")
+  message("   output/   \u2190 \u5206\u6790\u7ed3\u679c\u81ea\u52a8\u4fdd\u5b58\u5728\u6b64")
+  message("\n>>> \u4e0b\u4e00\u6b65: \u5728 RStudio \u4e2d\u6253\u5f00 scripts/01_\u6570\u636e\u5bfc\u5165\u4e0e\u5206\u7ec4.R \u5e76 Source \u8fd0\u884c")
+
+  invisible(project_dir)
+}
+
+
+#' 自动定位工作目录到项目根目录
+#'
+#' 在 RStudio 中运行时，自动将工作目录切换到脚本所在文件夹的
+#' **上一级** (即项目根目录)。这样 wkdir/ 和 output/ 都在项目根目录下。
+#'
+#' 项目目录结构应为:
+#' \preformatted{
+#'   project_root/     ← 工作目录设在这里
+#'   ├── scripts/      ← 脚本在这里
+#'   ├── wkdir/
+#'   └── output/
+#' }
 #'
 #' @return 不可见地返回工作目录路径
 #' @export
@@ -23,9 +88,15 @@ setup_workdir <- function() {
     ctx <- tryCatch(rstudioapi::getSourceEditorContext(), error = function(e) NULL)
     if (!is.null(ctx) && nchar(ctx$path) > 0) {
       script_dir <- dirname(ctx$path)
-      setwd(script_dir)
-      message(sprintf(">>> \u5de5\u4f5c\u76ee\u5f55: %s", script_dir))
-      return(invisible(script_dir))
+      # 如果脚本在 scripts/ 子目录中, 则上移一级到项目根目录
+      if (basename(script_dir) == "scripts") {
+        project_dir <- dirname(script_dir)
+      } else {
+        project_dir <- script_dir
+      }
+      setwd(project_dir)
+      message(sprintf(">>> \u5de5\u4f5c\u76ee\u5f55: %s", project_dir))
+      return(invisible(project_dir))
     }
   }
   message(sprintf(">>> \u5de5\u4f5c\u76ee\u5f55: %s", getwd()))

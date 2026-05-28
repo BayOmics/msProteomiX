@@ -83,12 +83,16 @@ tryCatch({
 message("\n>>> Verifying installation...")
 if (requireNamespace("msProteomiX", quietly = TRUE)) {
   message("\n========================================")
-  message("  Installation complete!")
-  message("  Next: Open 01_data_import_and_grouping.R")
+  message("  \u2705 \u5b89\u88c5\u5b8c\u6210!")
   message("========================================")
+  message("")
+  message("  \u4e0b\u4e00\u6b65: \u521b\u5efa\u5206\u6790\u9879\u76ee\u6587\u4ef6\u5939:")
+  message('  msProteomiX::create_project("~/Desktop/\u6211\u7684\u86cb\u767d\u7ec4\u5b66\u9879\u76ee")')
+  message("")
+  message("  \u7136\u540e\u5728 RStudio \u4e2d\u6253\u5f00 scripts/ \u91cc\u7684\u811a\u672c\u8fd0\u884c")
 } else {
   message("\n========================================")
-  message("  WARNING: msProteomiX not found.")
-  message("  Try restarting RStudio and run again.")
+  message("  \u26a0\ufe0f msProteomiX \u672a\u627e\u5230")
+  message("  \u8bf7\u91cd\u542f RStudio \u540e\u518d\u6b21\u8fd0\u884c")
   message("========================================")
 }

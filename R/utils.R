@@ -10,6 +10,28 @@
 #' @keywords internal
 .msProteomiX_env <- new.env(parent = emptyenv())
 
+#' 自动定位工作目录到脚本所在文件夹
+#'
+#' 在 RStudio 中运行时，自动将工作目录切换到当前脚本所在的文件夹。
+#' 确保 wkdir/ 和 output/ 始终在脚本旁边创建，
+#' 避免用户因工作目录不同导致找不到文件。
+#'
+#' @return 不可见地返回工作目录路径
+#' @export
+setup_workdir <- function() {
+  if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+    ctx <- tryCatch(rstudioapi::getSourceEditorContext(), error = function(e) NULL)
+    if (!is.null(ctx) && nchar(ctx$path) > 0) {
+      script_dir <- dirname(ctx$path)
+      setwd(script_dir)
+      message(sprintf(">>> \u5de5\u4f5c\u76ee\u5f55: %s", script_dir))
+      return(invisible(script_dir))
+    }
+  }
+  message(sprintf(">>> \u5de5\u4f5c\u76ee\u5f55: %s", getwd()))
+  invisible(getwd())
+}
+
 #' 正则转义辅助函数
 #'
 #' 转义字符串中的正则特殊字符，保护样本名中的 +, ., (, ) 等

@@ -11,6 +11,7 @@
 # ╚══════════════════════════════════════════════════════════════╝
 
 library(msProteomiX)
+setup_workdir()
 check_prerequisites("01")
 
 plot_id_barplot(

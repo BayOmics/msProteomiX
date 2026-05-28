@@ -9,6 +9,7 @@
 # ╚══════════════════════════════════════════════════════════════╝
 
 library(msProteomiX)
+setup_workdir()
 check_prerequisites("01")
 
 # Venn 图

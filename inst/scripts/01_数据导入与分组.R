@@ -4,6 +4,7 @@
 # ║                                                              ║
 # ║  【操作步骤】                                                ║
 # ║   1. 将搜库软件的结果文件夹放入 wkdir/ 目录                 ║
+# ║      (wkdir/ 在本脚本旁边自动创建)                          ║
 # ║      • FragPipe:    复制整个输出文件夹                      ║
 # ║      • Spectronaut: 复制 *_Report.tsv (Run Pivot 导出)      ║
 # ║      • MaxQuant:    复制 txt/ 文件夹 (含 proteinGroups.txt) ║
@@ -27,10 +28,12 @@
 # ║                                                              ║
 # ╚══════════════════════════════════════════════════════════════╝
 
+# --- 自动定位工作目录到脚本所在文件夹 ---
 library(msProteomiX)
+setup_workdir()
 
 # ━━━━━━━━━━━━━━━━━ 用户设置 (可修改) ━━━━━━━━━━━━━━━━━
-data_dir <- "wkdir"            # 数据文件夹路径
+data_dir <- "wkdir"            # 数据文件夹路径 (在脚本旁边)
 engine   <- "auto"             # 搜库引擎: "auto", "fragpipe", "spectronaut", "maxquant", "pd", "diann"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

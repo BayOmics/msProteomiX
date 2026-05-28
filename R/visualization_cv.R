@@ -24,8 +24,17 @@ plot_cv_boxplot <- function(ms_data, group_info,
 
   n_groups <- length(unique(cv_df$Group))
 
+  # 中位数标签
+  medians <- cv_df %>%
+    dplyr::group_by(Group) %>%
+    dplyr::summarise(MedianCV = stats::median(CV, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::mutate(Label = paste0(round(MedianCV * 100, 1), "%"))
+
   p <- ggplot2::ggplot(cv_df, ggplot2::aes(x = Group, y = CV, fill = Group)) +
     ggplot2::geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+    ggplot2::geom_text(data = medians,
+                       ggplot2::aes(x = Group, y = MedianCV, label = Label),
+                       vjust = -0.8, fontface = "bold", size = 4, show.legend = FALSE) +
     ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
     ggplot2::scale_y_continuous(labels = scales::percent) +
     ggplot2::coord_cartesian(ylim = c(0, min(max(cv_df$CV, na.rm = TRUE) * 1.1, 1.5))) +
@@ -60,9 +69,18 @@ plot_cv_violin <- function(ms_data, group_info,
 
   n_groups <- length(unique(cv_df$Group))
 
+  # 中位数标签
+  medians <- cv_df %>%
+    dplyr::group_by(Group) %>%
+    dplyr::summarise(MedianCV = stats::median(CV, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::mutate(Label = paste0(round(MedianCV * 100, 1), "%"))
+
   p <- ggplot2::ggplot(cv_df, ggplot2::aes(x = Group, y = CV, fill = Group)) +
     ggplot2::geom_violin(alpha = 0.6, trim = TRUE) +
     ggplot2::geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA) +
+    ggplot2::geom_text(data = medians,
+                       ggplot2::aes(x = Group, y = MedianCV, label = Label),
+                       vjust = -0.8, fontface = "bold", size = 4, show.legend = FALSE) +
     ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
     ggplot2::scale_y_continuous(labels = scales::percent) +
     ggplot2::coord_cartesian(ylim = c(0, min(max(cv_df$CV, na.rm = TRUE) * 1.1, 1.5))) +

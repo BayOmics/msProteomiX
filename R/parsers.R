@@ -170,6 +170,26 @@ parse_fragpipe <- function(path) {
   colnames(proteins) <- sample_names
   rownames(proteins) <- NULL
 
+  # 智能 fallback: 如果 Intensity 列全为 0, 尝试 Spectral Count
+  if (quant_info$type %in% c("LFQ", "Intensity")) {
+    total_nonzero <- sum(rowSums(proteins, na.rm = TRUE) > 0)
+    if (total_nonzero == 0) {
+      message(">>> Intensity \u5217\u5168\u4e3a 0, \u5c1d\u8bd5\u4f7f\u7528 Spectral Count...")
+      sc_idx <- grep("Spectral Count$", raw_cols, ignore.case = TRUE)
+      sc_idx <- sc_idx[!grepl("(Unique|Total|Combined)", raw_cols[sc_idx], ignore.case = TRUE)]
+      if (length(sc_idx) > 0) {
+        sc_cols <- raw_cols[sc_idx]
+        sc_samples <- trimws(stringr::str_remove(sc_cols, "(?i)\\s*Spectral Count$"))
+        proteins <- as.data.frame(lapply(prot_df[, sc_cols, drop = FALSE], function(x) suppressWarnings(as.numeric(x))))
+        colnames(proteins) <- sc_samples
+        rownames(proteins) <- NULL
+        sample_names <- sc_samples
+        quant_info$type <- "SpectralCount"
+        message(sprintf(">>> \u4f7f\u7528 Spectral Count (%d \u4e2a\u6837\u54c1)", length(sc_samples)))
+      }
+    }
+  }
+
   # 构建蛋白注释信息
   info_cols <- intersect(c("Protein", "Protein ID", "Entry Name", "Gene",
                             "Organism", "Protein Length", "Coverage",

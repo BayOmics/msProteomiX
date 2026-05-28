@@ -43,7 +43,7 @@ run_diff_analysis <- function(ms_data, group_info,
   expr_sub[expr_sub == 0] <- NA
   if (isTRUE(ms_data$is_log2)) {
     expr_log2 <- as.matrix(expr_sub)
-    message("  ℹ️ Data is already log2-transformed, skipping log2 conversion.")
+    message("  >>> Data is already log2-transformed, skipping log2 conversion.")
   } else {
     expr_log2 <- log2(as.matrix(expr_sub))
   }
@@ -185,24 +185,38 @@ run_diff_analysis <- function(ms_data, group_info,
   message("Available groups:")
   for (i in seq_along(lvl)) cat(sprintf("  [%d] %s\n", i, lvl[i]))
 
-  repeat {
-    ref_idx <- suppressWarnings(as.numeric(
-      readline(">>> Enter CONTROL group number (0 to exit): ")))
-    if (!is.na(ref_idx) && (ref_idx == 0 || (ref_idx >= 1 && ref_idx <= length(lvl)))) break
+  # 辅助: 从输入解析组名 (支持数字索引或组名)
+  .parse_group <- function(input, choices) {
+    input <- trimws(input)
+    if (input == "0") return("__EXIT__")
+    # 尝试数字索引
+    idx <- suppressWarnings(as.numeric(input))
+    if (!is.na(idx) && idx >= 1 && idx <= length(choices)) return(choices[idx])
+    # 尝试组名匹配
+    if (input %in% choices) return(input)
+    NULL
   }
-  if (ref_idx == 0) stop("User cancelled.")
-  ref <- lvl[ref_idx]
 
-  remain <- lvl[-ref_idx]
+  repeat {
+    input <- readline(">>> Enter CONTROL group (number or name, 0 to exit): ")
+    ref <- .parse_group(input, lvl)
+    if (!is.null(ref)) break
+    message("  Invalid input. Please enter a group number or name.")
+  }
+  if (identical(ref, "__EXIT__")) stop("User cancelled.")
+
+  remain <- lvl[lvl != ref]
   message(paste0("\n  Control group: ", ref))
   message("  Select TREATMENT group:")
   for (i in seq_along(remain)) cat(sprintf("  [%d] %s\n", i, remain[i]))
 
   repeat {
-    test_idx <- suppressWarnings(as.numeric(
-      readline(">>> Enter TREATMENT group number: ")))
-    if (!is.na(test_idx) && test_idx >= 1 && test_idx <= length(remain)) break
+    input <- readline(">>> Enter TREATMENT group (number or name): ")
+    test <- .parse_group(input, remain)
+    if (!is.null(test) && !identical(test, "__EXIT__")) break
+    message("  Invalid input. Please enter a group number or name.")
   }
 
-  list(ref = ref, test = remain[test_idx])
+  list(ref = ref, test = test)
 }
+

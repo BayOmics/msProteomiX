@@ -341,7 +341,7 @@ parse_spectronaut <- function(path) {
   valid_rows <- rowSums(!is.na(proteins)) > 0
   if (any(!valid_rows)) {
     n_removed <- sum(!valid_rows)
-    message(sprintf("  ℹ️ 移除 %d 个全缺失蛋白", n_removed))
+    message(sprintf("  >>> Removed %d all-missing proteins", n_removed))
     proteins <- proteins[valid_rows, , drop = FALSE]
     df <- df[valid_rows, , drop = FALSE]
   }

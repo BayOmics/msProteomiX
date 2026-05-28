@@ -111,7 +111,9 @@ plot_pca <- function(ms_data, group_info,
 
   grp_str <- paste(unique(grp_vec), collapse = "_")
   if (nchar(grp_str) > 40) grp_str <- paste0(length(unique(grp_vec)), "Groups")
-  save_plot_and_data(p, pca_df, project_name, paste0("PCA_", grp_str),
-                     output_dir = output_dir)
+  suppressWarnings(
+    save_plot_and_data(p, pca_df, project_name, paste0("PCA_", grp_str),
+                       output_dir = output_dir)
+  )
   p
 }

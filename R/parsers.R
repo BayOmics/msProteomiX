@@ -126,13 +126,13 @@ parse_fragpipe <- function(path) {
   # 定位文件
   if (dir.exists(path)) {
     data_dir <- path
-    # 搜索子目录中的文件
-    file_prot <- .find_file(data_dir, "combined_protein.*\\.(tsv|csv|txt)")
+    # 搜索子目录中的文件 (精确匹配 combined_protein.tsv，排除 template 等变体)
+    file_prot <- .find_file(data_dir, "^combined_protein\\.(tsv|csv|txt)$")
     if (is.null(file_prot)) {
       # 尝试搜索子目录
       subdirs <- list.dirs(data_dir, recursive = FALSE, full.names = TRUE)
       for (sd in subdirs) {
-        file_prot <- .find_file(sd, "combined_protein.*\\.(tsv|csv|txt)")
+        file_prot <- .find_file(sd, "^combined_protein\\.(tsv|csv|txt)$")
         if (!is.null(file_prot)) { data_dir <- sd; break }
       }
     }

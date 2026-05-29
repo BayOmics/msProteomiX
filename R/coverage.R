@@ -53,22 +53,21 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   if (length(common_ids) == 0) stop("No matching protein IDs between peptides and FASTA.")
   message(sprintf("  Matched proteins: %d", length(common_ids)))
 
-  # 预建 蛋白→肽段行 映射 (全局, 只需做一次)
+  # 预过滤: 只保留匹配上 FASTA 的肽段
   pep_df_valid <- pep_df[pep_df$CleanID %in% common_ids, ]
   has_pos <- all(c("Start", "End") %in% colnames(pep_df_valid))
   keep_cols <- c("CleanID", seq_col)
   if (has_pos) keep_cols <- c(keep_cols, "Start", "End")
-  pep_by_prot <- split(pep_df_valid[, keep_cols, drop = FALSE], pep_df_valid$CleanID)
 
-  # 核心覆盖度计算 (向量化)
-  .calc_one_prot <- function(pid) {
+  # 核心覆盖度计算
+  .calc_one_prot <- function(pid, pep_by_prot_grp) {
     fasta_idx <- match(pid, fasta_ids)
     if (is.na(fasta_idx)) return(NA_real_)
     prot_len <- fasta_widths[fasta_idx]
     if (prot_len == 0) return(NA_real_)
 
     prot_str <- fasta_strings[fasta_idx]
-    pep_rows <- pep_by_prot[[pid]]
+    pep_rows <- pep_by_prot_grp[[pid]]
     if (is.null(pep_rows) || nrow(pep_rows) == 0) return(0)
 
     cover_mask <- logical(prot_len)
@@ -116,14 +115,18 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
     }
     if (length(grp_cols) == 0) next
 
+    # 关键: 只用当前组检出的肽段行 (与参考脚本一致)
     is_detected <- rowSums(pep_df_valid[, grp_cols, drop = FALSE] > 0, na.rm = TRUE) > 0
-    detected_prots <- unique(pep_df_valid$CleanID[is_detected])
-    detected_prots <- detected_prots[detected_prots %in% common_ids]
+    grp_pep <- pep_df_valid[is_detected, keep_cols, drop = FALSE]
+    detected_prots <- unique(grp_pep$CleanID)
     if (length(detected_prots) == 0) next
+
+    # 每组重建蛋白→肽段映射
+    pep_by_prot_grp <- split(grp_pep, grp_pep$CleanID)
 
     message(sprintf("  [%d/%d] %s: calculating %d proteins...", g_idx, n_grps, grp, length(detected_prots)))
 
-    covs <- vapply(detected_prots, .calc_one_prot, numeric(1))
+    covs <- vapply(detected_prots, function(pid) .calc_one_prot(pid, pep_by_prot_grp), numeric(1))
     valid <- !is.na(covs)
 
     if (any(valid)) {

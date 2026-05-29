@@ -16,7 +16,8 @@ Depends:
     R (>= 4.1.0)
 Imports:
     dplyr,
-    readr,
+    magrittr,
+    rlang,
     stringr,
     ggplot2,
     ggrepel,

@@ -53,10 +53,12 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   if (length(common_ids) == 0) stop("No matching protein IDs between peptides and FASTA.")
   message(sprintf("  Matched proteins: %d", length(common_ids)))
 
-  # 预建 蛋白→肽段序列 映射 (全局, 只需做一次)
+  # 预建 蛋白→肽段行 映射 (全局, 只需做一次)
   pep_df_valid <- pep_df[pep_df$CleanID %in% common_ids, ]
-  pep_by_prot <- split(pep_df_valid[[seq_col]], pep_df_valid$CleanID)
-  pep_by_prot <- lapply(pep_by_prot, unique)
+  has_pos <- all(c("Start", "End") %in% colnames(pep_df_valid))
+  keep_cols <- c("CleanID", seq_col)
+  if (has_pos) keep_cols <- c(keep_cols, "Start", "End")
+  pep_by_prot <- split(pep_df_valid[, keep_cols, drop = FALSE], pep_df_valid$CleanID)
 
   # 核心覆盖度计算 (向量化)
   .calc_one_prot <- function(pid) {
@@ -66,16 +68,31 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
     if (prot_len == 0) return(NA_real_)
 
     prot_str <- fasta_strings[fasta_idx]
-    pep_seqs <- pep_by_prot[[pid]]
-    if (is.null(pep_seqs) || length(pep_seqs) == 0) return(0)
+    pep_rows <- pep_by_prot[[pid]]
+    if (is.null(pep_rows) || nrow(pep_rows) == 0) return(0)
 
     cover_mask <- logical(prot_len)
-    for (ps in pep_seqs) {
-      hits <- gregexpr(ps, prot_str, fixed = TRUE)[[1]]
-      if (hits[1] > 0) {
-        pep_len <- nchar(ps)
-        for (h in hits) {
-          cover_mask[h:(h + pep_len - 1L)] <- TRUE
+
+    # 优先使用 Start/End 精确位置 (与参考脚本一致)
+    if (has_pos) {
+      starts <- pep_rows$Start
+      ends <- pep_rows$End
+      valid_idx <- !is.na(starts) & !is.na(ends) & starts >= 1 & ends <= prot_len
+      if (any(valid_idx)) {
+        for (k in which(valid_idx)) {
+          cover_mask[starts[k]:ends[k]] <- TRUE
+        }
+      }
+    } else {
+      # Fallback: 字符串匹配
+      pep_seqs <- unique(pep_rows[[seq_col]])
+      for (ps in pep_seqs) {
+        hits <- gregexpr(ps, prot_str, fixed = TRUE)[[1]]
+        if (hits[1] > 0) {
+          pep_len <- nchar(ps)
+          for (h in hits) {
+            cover_mask[h:(h + pep_len - 1L)] <- TRUE
+          }
         }
       }
     }

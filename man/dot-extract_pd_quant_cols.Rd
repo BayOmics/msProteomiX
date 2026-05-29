@@ -2,11 +2,13 @@
 % Please edit documentation in R/parser_pd_diann.R
 \name{.extract_pd_quant_cols}
 \alias{.extract_pd_quant_cols}
-\title{在目录中查找匹配文件}
+\title{提取 PD 定量列名和样本名}
 \usage{
 .extract_pd_quant_cols(raw_cols)
 }
 \description{
-在目录中查找匹配文件
+PD 导出的 Abundance 列格式:
+标准: "Abundance: F1: Sample" / "Abundance Normalized: F1: Sample"
+R-Friendly: "Abundances.Normalized.F1.Sample" / "Abundances..Grouped..F1..Sample"
 }
 \keyword{internal}

@@ -1,6 +1,6 @@
 Package: msProteomiX
 Title: Multi-Engine Mass Spectrometry Proteomics Data Processing
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: 
     person("Xi", "Wang", email = "wangxi@bayomics.com", role = c("aut", "cre"))
 Description: A comprehensive R package for processing and visualizing mass 

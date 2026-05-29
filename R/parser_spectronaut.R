@@ -2,6 +2,24 @@
 # msProteomiX - Spectronaut parser
 # ==============================================================================
 
+# ==============================================================================
+
+#' 解析 Spectronaut 搜库结果
+#'
+#' 支持 Spectronaut Run Pivot (宽格式) 导出，自动识别两种常见格式：
+#' \itemize{
+#'   \item 格式A: 列名为干净样本名 (如 \code{PlasmaX-1}, \code{PlasmaX-2})
+#'   \item 格式B: 列名含索引和后缀 (如 \code{[1] filename.d.PG.Quantity})
+#' }
+#'
+#' @param path 文件路径或包含 Spectronaut 导出文件的目录
+#' @return MsDataSet 对象
+#' @export
+#' @examples
+#' \dontrun{
+#' ms <- read_ms_data("path/to/report.tsv", engine = "spectronaut")
+#' ms <- read_ms_data("path/to/wkdir/")  # 自动检测
+#' }
 parse_spectronaut <- function(path) {
   # 定位报告文件
   report_file <- NULL
@@ -143,23 +161,11 @@ parse_spectronaut <- function(path) {
 
 # ==============================================================================
 # MaxQuant 解析器
+
 # ==============================================================================
 
-#' 解析 MaxQuant 搜库结果
-#'
-#' 读取 MaxQuant 输出的 proteinGroups.txt 文件，返回 MsDataSet 对象。
-#' 自动过滤 reverse, contaminant, only-identified-by-site 条目。
-#' 定量列优先级: LFQ intensity > iBAQ > Intensity
-#'
-#' @param path 文件路径或包含 MaxQuant txt/ 结果的目录
-#' @return MsDataSet 对象
-#' @export
-#' @examples
-#' \dontrun{
-#' ms <- read_ms_data("path/to/proteinGroups.txt", engine = "maxquant")
-#' ms <- read_ms_data("path/to/txt/")  # 自动检测
-#' }
-
+#' 通过读取表头判断是否为 Spectronaut 文件
+#' @keywords internal
 .detect_spectronaut_header <- function(fpath) {
   tryCatch({
     header <- readLines(fpath, n = 1, warn = FALSE)
@@ -234,13 +240,4 @@ parse_spectronaut <- function(path) {
 
 
 # ==============================================================================
-# MaxQuant 内部辅助函数
-# ==============================================================================
 
-#' 提取 MaxQuant 定量列名和样本名
-#'
-#' MaxQuant proteinGroups.txt 的定量列格式为:
-#'   "LFQ intensity SampleName" (前缀固定，样本名在后)
-#'   "iBAQ SampleName" 或 "Intensity SampleName"
-#'
-#' @keywords internal

@@ -2,24 +2,11 @@
 % Please edit documentation in R/parser_spectronaut.R
 \name{.detect_spectronaut_header}
 \alias{.detect_spectronaut_header}
-\title{解析 MaxQuant 搜库结果}
+\title{通过读取表头判断是否为 Spectronaut 文件}
 \usage{
 .detect_spectronaut_header(fpath)
 }
-\arguments{
-\item{path}{文件路径或包含 MaxQuant txt/ 结果的目录}
-}
-\value{
-MsDataSet 对象
-}
 \description{
-读取 MaxQuant 输出的 proteinGroups.txt 文件，返回 MsDataSet 对象。
-自动过滤 reverse, contaminant, only-identified-by-site 条目。
-定量列优先级: LFQ intensity > iBAQ > Intensity
+通过读取表头判断是否为 Spectronaut 文件
 }
-\examples{
-\dontrun{
-ms <- read_ms_data("path/to/proteinGroups.txt", engine = "maxquant")
-ms <- read_ms_data("path/to/txt/")  # 自动检测
-}
-}
+\keyword{internal}

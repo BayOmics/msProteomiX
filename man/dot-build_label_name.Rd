@@ -2,11 +2,15 @@
 % Please edit documentation in R/parsers.R
 \name{.build_label_name}
 \alias{.build_label_name}
-\title{构建标签名 (用于火山图标注)}
+\title{提取 FragPipe 定量列名和样本名}
 \usage{
 .build_label_name(df)
 }
 \description{
+FragPipe combined_protein.tsv 的定量列格式为:
+"SampleName MaxLFQ Intensity" (样本名在前，后缀固定)
+}
+\details{
 构建标签名 (用于火山图标注)
 }
 \keyword{internal}

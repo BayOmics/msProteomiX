@@ -2,6 +2,21 @@
 # msProteomiX - Proteome Discoverer & DIA-NN parsers
 # ==============================================================================
 
+# ==============================================================================
+
+#' 解析 Proteome Discoverer 搜库结果
+#'
+#' 读取 Proteome Discoverer 导出的 *_Proteins.txt 文件，返回 MsDataSet 对象。
+#' 支持 Abundance (原始/归一化/缩放) 定量列。
+#' 同时支持标准列名和 R-Friendly 列名格式。
+#'
+#' @param path 文件路径或包含 PD 导出文件的目录
+#' @return MsDataSet 对象
+#' @export
+#' @examples
+#' \dontrun{
+#' ms <- read_ms_data("path/to/Study_Proteins.txt", engine = "pd")
+#' }
 parse_pd <- function(path) {
   # 定位文件
   pd_file <- NULL
@@ -276,11 +291,16 @@ parse_diann <- function(path) {
 
 # ==============================================================================
 # 内部辅助函数
+
 # ==============================================================================
 
-#' 在目录中查找匹配文件
+#' 提取 PD 定量列名和样本名
+#'
+#' PD 导出的 Abundance 列格式:
+#'   标准: "Abundance: F1: Sample" / "Abundance Normalized: F1: Sample"
+#'   R-Friendly: "Abundances.Normalized.F1.Sample" / "Abundances..Grouped..F1..Sample"
+#'
 #' @keywords internal
-
 .extract_pd_quant_cols <- function(raw_cols) {
   # 优先级 1: Abundances Scaled (R-Friendly: Abundances.Scaled.)
   idx <- grep("^Abundances?\\.?\\s*Scaled", raw_cols, ignore.case = TRUE)

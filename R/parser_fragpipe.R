@@ -132,26 +132,13 @@ parse_fragpipe <- function(path) {
 
 
 # ==============================================================================
-# Spectronaut 解析器
-# ==============================================================================
 
-#' 解析 Spectronaut 搜库结果
+#' 提取 FragPipe 定量列名和样本名
 #'
-#' 支持 Spectronaut Run Pivot (宽格式) 导出，自动识别两种常见格式：
-#' \itemize{
-#'   \item 格式A: 列名为干净样本名 (如 \code{PlasmaX-1}, \code{PlasmaX-2})
-#'   \item 格式B: 列名含索引和后缀 (如 \code{[1] filename.d.PG.Quantity})
-#' }
+#' FragPipe combined_protein.tsv 的定量列格式为:
+#'   "SampleName MaxLFQ Intensity" (样本名在前，后缀固定)
 #'
-#' @param path 文件路径或包含 Spectronaut 导出文件的目录
-#' @return MsDataSet 对象
-#' @export
-#' @examples
-#' \dontrun{
-#' ms <- read_ms_data("path/to/report.tsv", engine = "spectronaut")
-#' ms <- read_ms_data("path/to/wkdir/")  # 自动检测
-#' }
-
+#' @keywords internal
 .extract_fp_quant_cols <- function(raw_cols) {
   # 优先级 1: MaxLFQ Intensity (列名格式: "<sample> MaxLFQ Intensity")
   idx <- grep("MaxLFQ Intensity$", raw_cols, ignore.case = TRUE)
@@ -184,5 +171,4 @@ parse_fragpipe <- function(path) {
   list(cols = character(), samples = character(), type = "Unknown")
 }
 
-#' 构建标签名 (用于火山图标注)
-#' @keywords internal
+

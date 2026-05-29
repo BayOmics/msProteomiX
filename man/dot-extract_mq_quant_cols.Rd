@@ -2,23 +2,13 @@
 % Please edit documentation in R/parser_maxquant.R
 \name{.extract_mq_quant_cols}
 \alias{.extract_mq_quant_cols}
-\title{解析 Proteome Discoverer 搜库结果}
+\title{提取 MaxQuant 定量列名和样本名}
 \usage{
 .extract_mq_quant_cols(raw_cols)
 }
-\arguments{
-\item{path}{文件路径或包含 PD 导出文件的目录}
-}
-\value{
-MsDataSet 对象
-}
 \description{
-读取 Proteome Discoverer 导出的 *_Proteins.txt 文件，返回 MsDataSet 对象。
-支持 Abundance (原始/归一化/缩放) 定量列。
-同时支持标准列名和 R-Friendly 列名格式。
+MaxQuant proteinGroups.txt 的定量列格式为:
+"LFQ intensity SampleName" (前缀固定，样本名在后)
+"iBAQ SampleName" 或 "Intensity SampleName"
 }
-\examples{
-\dontrun{
-ms <- read_ms_data("path/to/Study_Proteins.txt", engine = "pd")
-}
-}
+\keyword{internal}

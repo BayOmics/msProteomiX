@@ -1,5 +1,7 @@
 # ==============================================================================
-# msProteomiX — 搜库引擎解析器
+# msProteomiX - Core parsers & shared helpers
+# ==============================================================================
+
 # ==============================================================================
 
 #' 自动检测并解析质谱搜库结果
@@ -111,6 +113,10 @@ detect_engine <- function(path) {
 
 
 
+# ==============================================================================
+
+#' 在目录中查找匹配文件
+#' @keywords internal
 .find_file <- function(dir, pattern) {
   f <- list.files(dir, pattern = pattern, full.names = TRUE, ignore.case = TRUE)
   if (length(f) > 0) f[1] else NULL
@@ -134,38 +140,6 @@ detect_engine <- function(path) {
 #' FragPipe combined_protein.tsv 的定量列格式为:
 #'   "SampleName MaxLFQ Intensity" (样本名在前，后缀固定)
 #'
-#' @keywords internal
-.extract_fp_quant_cols <- function(raw_cols) {
-  # 优先级 1: MaxLFQ Intensity (列名格式: "<sample> MaxLFQ Intensity")
-  idx <- grep("MaxLFQ Intensity$", raw_cols, ignore.case = TRUE)
-  if (length(idx) > 0) {
-    cols <- raw_cols[idx]
-    samples <- trimws(stringr::str_remove(cols, "(?i)\\s*MaxLFQ\\s*Intensity$"))
-    return(list(cols = cols, samples = samples, type = "LFQ"))
-  }
-
-  # 优先级 2: Intensity (非 MaxLFQ, 列名格式: "<sample> Intensity")
-  idx <- grep("Intensity$", raw_cols, ignore.case = TRUE)
-  idx <- idx[!grepl("MaxLFQ", raw_cols[idx], ignore.case = TRUE)]
-  # 排除 "Total Intensity" 等汇总列
-  idx <- idx[!grepl("^(Total|Combined)", raw_cols[idx], ignore.case = TRUE)]
-  if (length(idx) > 0) {
-    cols <- raw_cols[idx]
-    samples <- trimws(stringr::str_remove(cols, "(?i)\\s*Intensity$"))
-    return(list(cols = cols, samples = samples, type = "Intensity"))
-  }
-
-  # 优先级 3: Spectral Count (列名格式: "<sample> Spectral Count")
-  idx <- grep("Spectral Count$", raw_cols, ignore.case = TRUE)
-  idx <- idx[!grepl("(Unique|Total)", raw_cols[idx], ignore.case = TRUE)]
-  if (length(idx) > 0) {
-    cols <- raw_cols[idx]
-    samples <- trimws(stringr::str_remove(cols, "(?i)\\s*Spectral Count$"))
-    return(list(cols = cols, samples = samples, type = "SpectralCount"))
-  }
-
-  list(cols = character(), samples = character(), type = "Unknown")
-}
 
 #' 构建标签名 (用于火山图标注)
 #' @keywords internal
@@ -184,9 +158,12 @@ detect_engine <- function(path) {
   labels
 }
 
+
 #' 检查路径是否为目录
 #' @keywords internal
 .is_directory <- function(path) {
   file.info(path)$isdir
 }
+
+
 

@@ -2,6 +2,22 @@
 # msProteomiX - MaxQuant parser
 # ==============================================================================
 
+# ==============================================================================
+
+#' 解析 MaxQuant 搜库结果
+#'
+#' 读取 MaxQuant 输出的 proteinGroups.txt 文件，返回 MsDataSet 对象。
+#' 自动过滤 reverse, contaminant, only-identified-by-site 条目。
+#' 定量列优先级: LFQ intensity > iBAQ > Intensity
+#'
+#' @param path 文件路径或包含 MaxQuant txt/ 结果的目录
+#' @return MsDataSet 对象
+#' @export
+#' @examples
+#' \dontrun{
+#' ms <- read_ms_data("path/to/proteinGroups.txt", engine = "maxquant")
+#' ms <- read_ms_data("path/to/txt/")  # 自动检测
+#' }
 parse_maxquant <- function(path) {
   # 定位文件
   pg_file <- NULL
@@ -127,23 +143,16 @@ parse_maxquant <- function(path) {
 
 
 # ==============================================================================
-# Proteome Discoverer 解析器
+
 # ==============================================================================
 
-#' 解析 Proteome Discoverer 搜库结果
+#' 提取 MaxQuant 定量列名和样本名
 #'
-#' 读取 Proteome Discoverer 导出的 *_Proteins.txt 文件，返回 MsDataSet 对象。
-#' 支持 Abundance (原始/归一化/缩放) 定量列。
-#' 同时支持标准列名和 R-Friendly 列名格式。
+#' MaxQuant proteinGroups.txt 的定量列格式为:
+#'   "LFQ intensity SampleName" (前缀固定，样本名在后)
+#'   "iBAQ SampleName" 或 "Intensity SampleName"
 #'
-#' @param path 文件路径或包含 PD 导出文件的目录
-#' @return MsDataSet 对象
-#' @export
-#' @examples
-#' \dontrun{
-#' ms <- read_ms_data("path/to/Study_Proteins.txt", engine = "pd")
-#' }
-
+#' @keywords internal
 .extract_mq_quant_cols <- function(raw_cols) {
   # 优先级 1: LFQ intensity (列名格式: "LFQ intensity <sample>")
   idx <- grep("^LFQ intensity ", raw_cols, ignore.case = TRUE)
@@ -198,12 +207,4 @@ parse_maxquant <- function(path) {
 
 # ==============================================================================
 # Proteome Discoverer 内部辅助函数
-# ==============================================================================
 
-#' 提取 PD 定量列名和样本名
-#'
-#' PD 导出的 Abundance 列格式:
-#'   标准: "Abundance: F1: Sample" / "Abundance Normalized: F1: Sample"
-#'   R-Friendly: "Abundances.Normalized.F1.Sample" / "Abundances..Grouped..F1..Sample"
-#'
-#' @keywords internal

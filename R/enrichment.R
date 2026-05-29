@@ -168,11 +168,10 @@ plot_go_bar <- function(go_df,
 # KEGG Pathway Enrichment
 # ==============================================================================
 
-#' Run KEGG pathway enrichment analysis
+#' Run KEGG pathway enrichment analysis (offline)
 #'
-#' NOTE: This function requires internet access (calls KEGG REST API).
-#' For offline analysis, use run_go_enrichment() or
-#' run_gsea_analysis(gene_sets = "go_bp") instead.
+#' Uses local org.db annotation database for KEGG pathway-gene mappings.
+#' No internet connection required.
 #'
 #' @param ms_data MsDataSet object (used when diff_result is NULL)
 #' @param group_info Group info data.frame (used when diff_result is NULL)
@@ -188,13 +187,65 @@ run_kegg_enrichment <- function(ms_data = NULL, group_info = NULL,
                                 org_db = "org.Hs.eg.db",
                                 organism = "hsa",
                                 top_n = 15) {
-  message(">>> NOTE: KEGG enrichment requires internet (KEGG REST API).")
-  message("    For offline analysis, use run_go_enrichment() or run_gsea_analysis(gene_sets='go_bp').")
   if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
     stop("Please install clusterProfiler: BiocManager::install('clusterProfiler')")
   }
   if (!requireNamespace(org_db, quietly = TRUE)) {
     stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))
+  }
+
+  # Build local KEGG TERM2GENE from org.db
+  org_obj <- loadNamespace(org_db)[[org_db]]
+  kegg_keys <- tryCatch(
+    AnnotationDbi::keys(org_obj, keytype = "PATH"),
+    error = function(e) character(0)
+  )
+
+  if (length(kegg_keys) == 0) {
+    message(">>> No KEGG pathway data found in ", org_db, ". Check annotation package.")
+    return(data.frame())
+  }
+
+  message(sprintf(">>> Loading KEGG pathways from local %s (%d pathways, offline)...",
+                  org_db, length(kegg_keys)))
+  path_data <- AnnotationDbi::select(org_obj,
+                                      keys = kegg_keys,
+                                      columns = c("ENTREZID", "PATH"),
+                                      keytype = "PATH")
+  path_data <- path_data[!is.na(path_data$ENTREZID) & !is.na(path_data$PATH), ]
+
+  # Format TERM2GENE: add organism prefix for readability
+  prefix <- paste0(organism, ":")
+  term2gene <- data.frame(
+    term = paste0(prefix, path_data$PATH),
+    gene = path_data$ENTREZID,
+    stringsAsFactors = FALSE
+  )
+
+  # Build TERM2NAME if possible (pathway ID -> description)
+  term2name <- NULL
+
+  # Helper function for single enrichment
+  .do_kegg_enricher <- function(entrez_ids, term2gene, term2name, top_n) {
+    ekegg <- tryCatch({
+      clusterProfiler::enricher(
+        gene          = entrez_ids,
+        TERM2GENE     = term2gene,
+        TERM2NAME     = term2name,
+        pAdjustMethod = "BH",
+        pvalueCutoff  = 0.05,
+        qvalueCutoff  = 0.2
+      )
+    }, error = function(e) {
+      message(">>> KEGG enrichment failed: ", e$message)
+      NULL
+    })
+
+    if (is.null(ekegg) || nrow(ekegg) == 0) return(NULL)
+
+    ekegg@result %>%
+      dplyr::arrange(p.adjust) %>%
+      utils::head(top_n)
   }
 
   if (!is.null(diff_result)) {
@@ -211,32 +262,16 @@ run_kegg_enrichment <- function(ms_data = NULL, group_info = NULL,
       return(data.frame())
     }
 
-    ekegg <- tryCatch({
-      clusterProfiler::enrichKEGG(
-        gene         = entrez_ids,
-        organism     = organism,
-        pAdjustMethod = "BH",
-        pvalueCutoff = 0.05,
-        qvalueCutoff = 0.2
-      )
-    }, error = function(e) {
-      message(">>> KEGG enrichment failed: ", e$message)
-      NULL
-    })
-
-    if (is.null(ekegg) || nrow(ekegg) == 0) {
+    result <- .do_kegg_enricher(entrez_ids, term2gene, term2name, top_n)
+    if (is.null(result)) {
       message(">>> No significant KEGG enrichment results.")
       return(data.frame())
     }
-
-    result <- ekegg@result %>%
-      dplyr::arrange(p.adjust) %>%
-      utils::head(top_n)
     result$Group <- attr(diff_result, "contrast") %||% "DiffExpr"
     return(result)
 
   } else {
-    # --- Mode 2: Enrichment by group (same pattern as run_go_enrichment) ---
+    # --- Mode 2: Enrichment by group ---
     if (is.null(ms_data) || is.null(group_info)) {
       stop("Provide either diff_result, or both ms_data and group_info.")
     }
@@ -256,20 +291,8 @@ run_kegg_enrichment <- function(ms_data = NULL, group_info = NULL,
       if (length(entrez_ids) < 5) next
 
       message(paste("  KEGG enrichment for group:", grp))
-      ekegg <- tryCatch({
-        clusterProfiler::enrichKEGG(
-          gene         = entrez_ids,
-          organism     = organism,
-          pAdjustMethod = "BH",
-          pvalueCutoff = 0.05,
-          qvalueCutoff = 0.2
-        )
-      }, error = function(e) NULL)
-
-      if (!is.null(ekegg) && nrow(ekegg) > 0) {
-        top_res <- ekegg@result %>%
-          dplyr::arrange(p.adjust) %>%
-          utils::head(top_n)
+      top_res <- .do_kegg_enricher(entrez_ids, term2gene, term2name, top_n)
+      if (!is.null(top_res)) {
         top_res$Group <- grp
         kegg_results[[grp]] <- top_res
       }

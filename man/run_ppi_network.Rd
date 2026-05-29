@@ -2,10 +2,13 @@
 % Please edit documentation in R/network.R
 \name{run_ppi_network}
 \alias{run_ppi_network}
-\title{Run PPI network analysis using STRINGdb}
+\title{Run protein network analysis}
 \usage{
 run_ppi_network(
   diff_result,
+  ms_data = NULL,
+  mode = "correlation",
+  cor_threshold = 0.8,
   species = 9606,
   score_threshold = 700,
   network_type = "full"
@@ -14,6 +17,12 @@ run_ppi_network(
 \arguments{
 \item{diff_result}{Output from run_diff_analysis()}
 
+\item{ms_data}{MsDataSet object (required for mode="correlation")}
+
+\item{mode}{Analysis mode: "correlation" (offline) or "string" (online)}
+
+\item{cor_threshold}{Correlation threshold for mode="correlation" (default 0.8)}
+
 \item{species}{STRING species NCBI taxonomy ID (default 9606 for human)}
 
 \item{score_threshold}{Combined score threshold 0-1000 (default 700)}
@@ -21,13 +30,14 @@ run_ppi_network(
 \item{network_type}{Network type: "full" or "physical" (default "full")}
 }
 \value{
-List with components: nodes, edges, string_ids, n_mapped
+List with components: nodes, edges, n_mapped, n_edges
 }
 \description{
-NOTE: This function requires internet access (queries string-db.org).
-There is no offline alternative for PPI network analysis.
+Two modes available:
+\itemize{
+\item mode = "correlation" (default, offline): Build co-expression network
+from protein abundance correlation. No internet needed.
+\item mode = "string" (requires internet): Query STRING database for
+protein-protein interactions.
 }
-\details{
-Extract protein-protein interactions from STRING database for
-differentially expressed proteins.
 }

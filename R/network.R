@@ -2,24 +2,39 @@
 # msProteomiX — PPI (Protein-Protein Interaction) Network Analysis
 # ==============================================================================
 
-#' Run PPI network analysis using STRINGdb
+#' Run protein network analysis
 #'
-#' NOTE: This function requires internet access (queries string-db.org).
-#' There is no offline alternative for PPI network analysis.
-#'
-#' Extract protein-protein interactions from STRING database for
-#' differentially expressed proteins.
+#' Two modes available:
+#' \itemize{
+#'   \item mode = "correlation" (default, offline): Build co-expression network
+#'     from protein abundance correlation. No internet needed.
+#'   \item mode = "string" (requires internet): Query STRING database for
+#'     protein-protein interactions.
+#' }
 #'
 #' @param diff_result Output from run_diff_analysis()
+#' @param ms_data MsDataSet object (required for mode="correlation")
+#' @param mode Analysis mode: "correlation" (offline) or "string" (online)
+#' @param cor_threshold Correlation threshold for mode="correlation" (default 0.8)
 #' @param species STRING species NCBI taxonomy ID (default 9606 for human)
 #' @param score_threshold Combined score threshold 0-1000 (default 700)
 #' @param network_type Network type: "full" or "physical" (default "full")
-#' @return List with components: nodes, edges, string_ids, n_mapped
+#' @return List with components: nodes, edges, n_mapped, n_edges
 #' @export
 run_ppi_network <- function(diff_result,
+                            ms_data = NULL,
+                            mode = "correlation",
+                            cor_threshold = 0.8,
                             species = 9606,
                             score_threshold = 700,
                             network_type = "full") {
+
+  # --- Offline: correlation-based co-expression network ---
+  if (mode == "correlation") {
+    return(.run_correlation_network(diff_result, ms_data, cor_threshold))
+  }
+
+  # --- Online: STRINGdb ---
   if (!requireNamespace("STRINGdb", quietly = TRUE)) {
     stop("Please install STRINGdb: BiocManager::install('STRINGdb')")
   }
@@ -279,4 +294,120 @@ plot_ppi_network <- function(ppi_result,
                   igraph::vcount(g), igraph::ecount(g)))
 
   invisible(g)
+}
+
+
+# ==============================================================================
+# Offline correlation-based co-expression network
+# ==============================================================================
+
+#' Build co-expression network from protein abundance correlation (internal)
+#' @keywords internal
+.run_correlation_network <- function(diff_result, ms_data, cor_threshold = 0.8) {
+  if (is.null(ms_data)) {
+    stop("ms_data is required for mode='correlation'. ",
+         "Pass the MsDataSet object to run_ppi_network().")
+  }
+  stopifnot(inherits(ms_data, "MsDataSet"))
+
+  # Extract DE genes
+  diff_df <- diff_result[diff_result$diff %in% c("UP", "DOWN"), ]
+  if (nrow(diff_df) == 0) {
+    message(">>> No differentially expressed proteins for network analysis.")
+    return(NULL)
+  }
+
+  gene_col <- if ("Gene" %in% colnames(diff_df)) "Gene"
+              else if ("Label_Name" %in% colnames(diff_df)) "Label_Name"
+              else NULL
+  if (is.null(gene_col)) stop("Cannot find gene column in diff_result.")
+
+  genes <- as.character(diff_df[[gene_col]])
+  genes_clean <- unique(trimws(sub(";.*$", "", genes)))
+  genes_clean <- genes_clean[genes_clean != "" & !is.na(genes_clean)]
+
+  if (length(genes_clean) < 3) {
+    message(">>> Too few DE genes (<3) for network analysis.")
+    return(NULL)
+  }
+
+  # Get expression matrix for DE proteins
+  protein_genes <- sub(";.*$", "", ms_data$protein_info$Gene)
+  idx <- which(protein_genes %in% genes_clean)
+
+  if (length(idx) < 3) {
+    message(">>> Too few proteins matched in expression matrix.")
+    return(NULL)
+  }
+
+  # Limit to manageable size
+  if (length(idx) > 200) {
+    # Take top 200 by |logFC|
+    match_idx <- match(protein_genes[idx], genes_clean)
+    fc_vals <- diff_df$logFC[match(protein_genes[idx], sub(";.*$", "", diff_df[[gene_col]]))]
+    fc_vals[is.na(fc_vals)] <- 0
+    fc_order <- order(abs(fc_vals), decreasing = TRUE)
+    idx <- idx[fc_order[seq_len(200)]]
+  }
+
+  abund <- as.matrix(ms_data$proteins[idx, , drop = FALSE])
+  rownames(abund) <- protein_genes[idx]
+
+  # Remove rows with all NA
+  valid_rows <- rowSums(!is.na(abund)) >= 3
+  abund <- abund[valid_rows, , drop = FALSE]
+
+  if (nrow(abund) < 3) {
+    message(">>> Too few proteins with sufficient data for correlation.")
+    return(NULL)
+  }
+
+  message(sprintf(">>> Building co-expression network (offline, %d proteins, |r| >= %.2f)...",
+                  nrow(abund), cor_threshold))
+
+  # Compute pairwise Pearson correlation
+  cor_mat <- stats::cor(t(abund), use = "pairwise.complete.obs", method = "pearson")
+  diag(cor_mat) <- 0
+
+  # Build edges from high correlations
+  edge_list <- which(abs(cor_mat) >= cor_threshold & upper.tri(cor_mat), arr.ind = TRUE)
+
+  if (nrow(edge_list) == 0) {
+    message(sprintf(">>> No edges above threshold |r| >= %.2f. Try lowering cor_threshold.", cor_threshold))
+    return(NULL)
+  }
+
+  gene_names <- rownames(cor_mat)
+  edges <- data.frame(
+    from           = gene_names[edge_list[, 1]],
+    to             = gene_names[edge_list[, 2]],
+    combined_score = round(abs(cor_mat[edge_list]) * 1000),
+    correlation    = round(cor_mat[edge_list], 3),
+    stringsAsFactors = FALSE
+  )
+
+  # Build nodes
+  all_nodes <- unique(c(edges$from, edges$to))
+  diff_status <- stats::setNames(as.character(diff_df$diff), sub(";.*$", "", diff_df[[gene_col]]))
+  diff_fc <- stats::setNames(diff_df$logFC, sub(";.*$", "", diff_df[[gene_col]]))
+
+  nodes <- data.frame(
+    gene      = all_nodes,
+    STRING_id = all_nodes,  # compatibility with plot_ppi_network
+    diff      = sapply(all_nodes, function(g) if (g %in% names(diff_status)) diff_status[g] else "NO"),
+    logFC     = sapply(all_nodes, function(g) if (g %in% names(diff_fc)) diff_fc[g] else 0),
+    stringsAsFactors = FALSE
+  )
+
+  message(sprintf(">>> Co-expression network: %d nodes, %d edges (offline)",
+                  nrow(nodes), nrow(edges)))
+
+  list(
+    nodes     = nodes,
+    edges     = edges,
+    string_db = NULL,
+    mapped    = nodes,
+    n_mapped  = nrow(nodes),
+    n_edges   = nrow(edges)
+  )
 }

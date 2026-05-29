@@ -2,7 +2,7 @@
 % Please edit documentation in R/enrichment.R
 \name{run_kegg_enrichment}
 \alias{run_kegg_enrichment}
-\title{Run KEGG pathway enrichment analysis}
+\title{Run KEGG pathway enrichment analysis (offline)}
 \usage{
 run_kegg_enrichment(
   ms_data = NULL,
@@ -31,7 +31,6 @@ enrichment is performed on differentially expressed proteins only.}
 data.frame with enrichment results
 }
 \description{
-NOTE: This function requires internet access (calls KEGG REST API).
-For offline analysis, use run_go_enrichment() or
-run_gsea_analysis(gene_sets = "go_bp") instead.
+Uses local org.db annotation database for KEGG pathway-gene mappings.
+No internet connection required.
 }

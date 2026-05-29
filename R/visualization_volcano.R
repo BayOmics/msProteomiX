@@ -92,6 +92,8 @@ plot_volcano <- function(diff_result,
   # 保存
   fname_base <- file.path(output_dir, paste0(project_name, "_Volcano_", contrast))
   ggplot2::ggsave(paste0(fname_base, ".pdf"), p, width = 8, height = 7)
+  ggplot2::ggsave(paste0(fname_base, ".png"), p, width = 8, height = 7,
+                  dpi = 300, bg = "white")
   utils::write.csv(diff_result, paste0(fname_base, ".csv"), row.names = FALSE)
   message(paste("  Results saved:", fname_base))
 

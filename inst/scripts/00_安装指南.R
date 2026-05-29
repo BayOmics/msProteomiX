@@ -23,7 +23,7 @@ message("=== msProteomiX Installation ===\n")
 
 # --- 1. 安装 CRAN 包 ---
 cran_pkgs <- c(
-  "devtools", "readr", "dplyr", "stringr", "ggplot2", "ggrepel",
+  "devtools", "magrittr", "rlang", "dplyr", "stringr", "ggplot2", "ggrepel",
   "reshape2", "scales", "tibble", "ggvenn", "UpSetR", "gridExtra"
 )
 

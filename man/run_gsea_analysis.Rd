@@ -2,12 +2,13 @@
 % Please edit documentation in R/enrichment.R
 \name{run_gsea_analysis}
 \alias{run_gsea_analysis}
-\title{Run GSEA pre-ranked analysis using gseKEGG}
+\title{Run GSEA pre-ranked analysis (offline by default)}
 \usage{
 run_gsea_analysis(
   diff_result,
   org_db = "org.Hs.eg.db",
   organism = "hsa",
+  gene_sets = "kegg",
   pvalue_cutoff = 0.05,
   min_gs_size = 10,
   max_gs_size = 500
@@ -18,7 +19,10 @@ run_gsea_analysis(
 
 \item{org_db}{Annotation database (default "org.Hs.eg.db")}
 
-\item{organism}{KEGG organism code (default "hsa")}
+\item{organism}{KEGG organism code (default "hsa") or msigdbr species}
+
+\item{gene_sets}{Gene set collection: "kegg" (offline), "hallmark",
+"reactome", "go_bp", or "kegg_online" (requires internet)}
 
 \item{pvalue_cutoff}{P-value cutoff (default 0.05)}
 
@@ -32,4 +36,9 @@ gseaResult object or NULL
 \description{
 Uses all proteins' logFC from diff_result (not just significant ones)
 to perform gene set enrichment analysis.
+}
+\details{
+By default uses msigdbr package for offline gene sets (no internet needed).
+Supported gene_sets: "kegg" (default), "hallmark", "reactome", "go_bp",
+or "kegg_online" (requires internet via gseKEGG).
 }

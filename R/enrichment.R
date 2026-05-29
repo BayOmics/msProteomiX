@@ -579,14 +579,20 @@ plot_reactome_bar <- function(reactome_df,
 # GSEA (Gene Set Enrichment Analysis)
 # ==============================================================================
 
-#' Run GSEA pre-ranked analysis using gseKEGG
+#' Run GSEA pre-ranked analysis (offline by default)
 #'
 #' Uses all proteins' logFC from diff_result (not just significant ones)
 #' to perform gene set enrichment analysis.
 #'
+#' By default uses msigdbr package for offline gene sets (no internet needed).
+#' Supported gene_sets: "kegg" (default), "hallmark", "reactome", "go_bp",
+#' or "kegg_online" (requires internet via gseKEGG).
+#'
 #' @param diff_result data.frame from run_diff_analysis()
 #' @param org_db Annotation database (default "org.Hs.eg.db")
-#' @param organism KEGG organism code (default "hsa")
+#' @param organism KEGG organism code (default "hsa") or msigdbr species
+#' @param gene_sets Gene set collection: "kegg" (offline), "hallmark",
+#'   "reactome", "go_bp", or "kegg_online" (requires internet)
 #' @param pvalue_cutoff P-value cutoff (default 0.05)
 #' @param min_gs_size Minimum gene set size (default 10)
 #' @param max_gs_size Maximum gene set size (default 500)
@@ -595,17 +601,15 @@ plot_reactome_bar <- function(reactome_df,
 run_gsea_analysis <- function(diff_result,
                                org_db = "org.Hs.eg.db",
                                organism = "hsa",
+                               gene_sets = "kegg",
                                pvalue_cutoff = 0.05,
                                min_gs_size = 10,
                                max_gs_size = 500) {
   if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
     stop("Please install clusterProfiler: BiocManager::install('clusterProfiler')")
   }
-  if (!requireNamespace(org_db, quietly = TRUE)) {
-    stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))
-  }
 
-  # Extract gene symbols and logFC
+  # --- Build ranked gene list ---
   gene_col <- if ("Gene" %in% colnames(diff_result)) "Gene"
               else if ("Label_Name" %in% colnames(diff_result)) "Label_Name"
               else NULL
@@ -614,19 +618,215 @@ run_gsea_analysis <- function(diff_result,
     return(NULL)
   }
 
-  # Build ranked gene list: gene symbol -> logFC
   gene_symbols <- as.character(diff_result[[gene_col]])
   logfc_values <- diff_result$logFC
 
-  # Remove NA and empty
   valid <- !is.na(gene_symbols) & gene_symbols != "" & !is.na(logfc_values)
   gene_symbols <- gene_symbols[valid]
   logfc_values <- logfc_values[valid]
-
-  # Handle multi-gene entries (split by ; and take first)
   first_gene <- sub(";.*$", "", gene_symbols)
 
-  # Convert SYMBOL -> ENTREZID with logFC mapping
+  # --- Online gseKEGG path (requires internet) ---
+  if (gene_sets == "kegg_online") {
+    return(.run_gsea_online(diff_result, first_gene, logfc_values,
+                            org_db, organism, pvalue_cutoff,
+                            min_gs_size, max_gs_size))
+  }
+
+  # --- Offline path: gseGO (truly offline, uses local org.db) ---
+  if (gene_sets %in% c("go_bp", "go_cc", "go_mf")) {
+    if (!requireNamespace(org_db, quietly = TRUE)) {
+      stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))
+    }
+
+    ont <- switch(gene_sets,
+      "go_bp" = "BP", "go_cc" = "CC", "go_mf" = "MF", "BP"
+    )
+
+    message(sprintf(">>> Converting gene symbols to Entrez IDs..."))
+    id_map <- tryCatch({
+      clusterProfiler::bitr(
+        unique(first_gene),
+        fromType = "SYMBOL",
+        toType   = "ENTREZID",
+        OrgDb    = loadNamespace(org_db)[[org_db]]
+      )
+    }, error = function(e) {
+      message(">>> Gene ID conversion failed: ", e$message)
+      return(NULL)
+    })
+
+    if (is.null(id_map) || nrow(id_map) == 0) {
+      message(">>> No genes could be mapped. GSEA aborted.")
+      return(NULL)
+    }
+
+    gene_df <- data.frame(SYMBOL = first_gene, logFC = logfc_values,
+                           stringsAsFactors = FALSE)
+    merged <- merge(gene_df, id_map, by = "SYMBOL")
+    merged <- merged[order(abs(merged$logFC), decreasing = TRUE), ]
+    merged <- merged[!duplicated(merged$ENTREZID), ]
+
+    gene_list <- merged$logFC
+    names(gene_list) <- merged$ENTREZID
+    gene_list <- sort(gene_list, decreasing = TRUE)
+
+    if (length(gene_list) < 15) {
+      message(sprintf(">>> Too few mapped genes (%d).", length(gene_list)))
+      return(NULL)
+    }
+
+    message(sprintf(">>> Running gseGO (%s) with %d ranked genes (offline)...",
+                    ont, length(gene_list)))
+
+    gsea_result <- tryCatch({
+      clusterProfiler::gseGO(
+        geneList      = gene_list,
+        OrgDb         = loadNamespace(org_db)[[org_db]],
+        ont           = ont,
+        minGSSize     = min_gs_size,
+        maxGSSize     = max_gs_size,
+        pvalueCutoff  = pvalue_cutoff,
+        pAdjustMethod = "BH",
+        verbose       = FALSE
+      )
+    }, error = function(e) {
+      message(">>> gseGO failed: ", e$message)
+      return(NULL)
+    })
+
+    if (is.null(gsea_result) || nrow(gsea_result) == 0) {
+      message(">>> No significant GSEA results found.")
+      return(gsea_result)
+    }
+
+    contrast <- attr(diff_result, "contrast")
+    if (!is.null(contrast)) attr(gsea_result, "contrast") <- contrast
+
+    n_up <- sum(gsea_result@result$NES > 0)
+    n_down <- sum(gsea_result@result$NES < 0)
+    message(sprintf(">>> GSEA complete: %d enriched (%d activated, %d suppressed)",
+                    nrow(gsea_result), n_up, n_down))
+    return(gsea_result)
+  }
+
+  # --- msigdbr path (kegg/hallmark/reactome, offline after first cache) ---
+  if (gene_sets %in% c("kegg", "hallmark", "reactome")) {
+    if (!requireNamespace("msigdbr", quietly = TRUE)) {
+      stop("Please install msigdbr for ", gene_sets, " GSEA: install.packages('msigdbr')\n",
+           "Or use gene_sets = 'go_bp' (fully offline) or 'kegg_online' (requires internet).")
+    }
+
+    species_map <- c("hsa" = "Homo sapiens", "mmu" = "Mus musculus",
+                     "rno" = "Rattus norvegicus")
+    species <- species_map[organism]
+    if (is.na(species)) species <- "Homo sapiens"
+
+    gs_config <- switch(gene_sets,
+      "kegg"     = list(collection = "C2", subcollection = "CP:KEGG_MEDICUS",
+                         label = "KEGG"),
+      "hallmark" = list(collection = "H",  subcollection = NULL,
+                         label = "Hallmark"),
+      "reactome" = list(collection = "C2", subcollection = "CP:REACTOME",
+                         label = "Reactome")
+    )
+
+    message(sprintf(">>> Loading %s gene sets (via msigdbr)...", gs_config$label))
+
+    msig_df <- tryCatch({
+      if (!is.null(gs_config$subcollection)) {
+        msigdbr::msigdbr(species = species,
+                         collection = gs_config$collection,
+                         subcollection = gs_config$subcollection)
+      } else {
+        msigdbr::msigdbr(species = species,
+                         collection = gs_config$collection)
+      }
+    }, error = function(e) {
+      message(">>> msigdbr failed: ", e$message)
+      message(">>> Try gene_sets='go_bp' (fully offline) or gene_sets='kegg_online'.")
+      return(NULL)
+    })
+
+    if (is.null(msig_df) || nrow(msig_df) == 0) {
+      message(">>> No gene sets found. Check organism/gene_sets settings.")
+      return(NULL)
+    }
+
+    term2gene <- data.frame(
+      gs_name     = msig_df$gs_name,
+      gene_symbol = msig_df$gene_symbol,
+      stringsAsFactors = FALSE
+    )
+
+    gene_df <- data.frame(SYMBOL = first_gene, logFC = logfc_values,
+                           stringsAsFactors = FALSE)
+    gene_df <- gene_df[order(abs(gene_df$logFC), decreasing = TRUE), ]
+    gene_df <- gene_df[!duplicated(gene_df$SYMBOL), ]
+
+    gene_list <- gene_df$logFC
+    names(gene_list) <- gene_df$SYMBOL
+    gene_list <- sort(gene_list, decreasing = TRUE)
+
+    if (length(gene_list) < 15) {
+      message(sprintf(">>> Too few genes (%d).", length(gene_list)))
+      return(NULL)
+    }
+
+    message(sprintf(">>> Running GSEA (%s) with %d ranked genes...",
+                    gs_config$label, length(gene_list)))
+
+    gsea_result <- tryCatch({
+      clusterProfiler::GSEA(
+        geneList      = gene_list,
+        TERM2GENE     = term2gene,
+        minGSSize     = min_gs_size,
+        maxGSSize     = max_gs_size,
+        pvalueCutoff  = pvalue_cutoff,
+        pAdjustMethod = "BH",
+        verbose       = FALSE
+      )
+    }, error = function(e) {
+      message(">>> GSEA failed: ", e$message)
+      return(NULL)
+    })
+
+    if (is.null(gsea_result) || nrow(gsea_result) == 0) {
+      message(">>> No significant GSEA results found.")
+      return(gsea_result)
+    }
+
+    # Clean up pathway names
+    gsea_result@result$Description <- gsub(
+      "^KEGG_MEDICUS_|^KEGG_LEGACY_|^KEGG_|^HALLMARK_|^REACTOME_|^GOBP_", "",
+      gsea_result@result$Description)
+    gsea_result@result$Description <- gsub("_", " ", gsea_result@result$Description)
+  } else {
+    message(sprintf(">>> Unknown gene_sets: '%s'. Use 'go_bp', 'kegg', 'hallmark', 'reactome', or 'kegg_online'.",
+                    gene_sets))
+    return(NULL)
+  }
+
+  contrast <- attr(diff_result, "contrast")
+  if (!is.null(contrast)) attr(gsea_result, "contrast") <- contrast
+
+  n_up <- sum(gsea_result@result$NES > 0)
+  n_down <- sum(gsea_result@result$NES < 0)
+  message(sprintf(">>> GSEA complete: %d enriched (%d activated, %d suppressed)",
+                  nrow(gsea_result), n_up, n_down))
+  gsea_result
+}
+
+
+#' Run GSEA online via gseKEGG (internal helper)
+#' @keywords internal
+.run_gsea_online <- function(diff_result, first_gene, logfc_values,
+                              org_db, organism, pvalue_cutoff,
+                              min_gs_size, max_gs_size) {
+  if (!requireNamespace(org_db, quietly = TRUE)) {
+    stop(paste("Please install", org_db))
+  }
+
   message(">>> Converting gene symbols to Entrez IDs...")
   id_map <- tryCatch({
     clusterProfiler::bitr(
@@ -645,12 +845,9 @@ run_gsea_analysis <- function(diff_result,
     return(NULL)
   }
 
-  # Build named vector: ENTREZID -> logFC (descending)
   gene_df <- data.frame(SYMBOL = first_gene, logFC = logfc_values,
                          stringsAsFactors = FALSE)
   merged <- merge(gene_df, id_map, by = "SYMBOL")
-
-  # For duplicate ENTREZID, take the one with largest |logFC|
   merged <- merged[order(abs(merged$logFC), decreasing = TRUE), ]
   merged <- merged[!duplicated(merged$ENTREZID), ]
 
@@ -659,12 +856,12 @@ run_gsea_analysis <- function(diff_result,
   gene_list <- sort(gene_list, decreasing = TRUE)
 
   if (length(gene_list) < 15) {
-    message(sprintf(">>> Too few mapped genes (%d). GSEA requires more data.",
-                    length(gene_list)))
+    message(sprintf(">>> Too few mapped genes (%d).", length(gene_list)))
     return(NULL)
   }
 
-  message(sprintf(">>> Running gseKEGG with %d ranked genes...", length(gene_list)))
+  message(sprintf(">>> Running gseKEGG with %d ranked genes (online)...",
+                  length(gene_list)))
 
   gsea_result <- tryCatch({
     clusterProfiler::gseKEGG(

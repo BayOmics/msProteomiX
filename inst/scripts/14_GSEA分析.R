@@ -24,8 +24,8 @@ library(msProteomiX)
 setup_workdir()
 
 # ━━━━━━━━━━━━━━━━━ 用户设置 (可修改) ━━━━━━━━━━━━━━━━━
-org_db   <- "org.Hs.eg.db"   # 物种注释包: org.Hs.eg.db(人), org.Mm.eg.db(鼠)
-organism <- "hsa"             # KEGG 物种: hsa(人), mmu(鼠)
+gene_sets <- "go_bp"          # 基因集: go_bp(默认,完全离线), go_cc, go_mf, kegg, hallmark, reactome, kegg_online(联网)
+organism <- "hsa"             # 物种: hsa(人), mmu(鼠)
 top_n    <- 20                # NES 气泡图展示前 N 个通路
 es_top_n <- 3                 # 富集曲线图: 各展示前 N 个激活/抑制通路
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -38,12 +38,12 @@ if (is.null(diff_result)) {
 
 project_name <- .msProteomiX_env$project_name %||% "Project"
 
-# 1. GSEA 分析
+# 1. GSEA 分析 (默认离线, 无需联网)
 message("\n>>> Running GSEA analysis...")
 gsea_result <- run_gsea_analysis(
   diff_result,
-  org_db   = org_db,
-  organism = organism
+  organism  = organism,
+  gene_sets = gene_sets
 )
 
 # 2. 可视化

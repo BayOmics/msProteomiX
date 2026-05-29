@@ -4,7 +4,7 @@
 \alias{.generate_rmd_template}
 \title{Generate RMarkdown template dynamically}
 \usage{
-.generate_rmd_template(output_dir, project_name, pdf_files, csv_files)
+.generate_rmd_template(output_dir, project_name, png_files, csv_files)
 }
 \description{
 Generate RMarkdown template dynamically

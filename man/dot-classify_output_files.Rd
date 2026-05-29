@@ -4,7 +4,7 @@
 \alias{.classify_output_files}
 \title{Classify output files by analysis type}
 \usage{
-.classify_output_files(pdf_files)
+.classify_output_files(image_files)
 }
 \description{
 Classify output files by analysis type

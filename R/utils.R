@@ -221,9 +221,11 @@ save_plot_and_data <- function(plot_obj, data_df, project_name, suffix,
   # 保存 CSV
   utils::write.csv(data_df, paste0(base_name, ".csv"), row.names = FALSE)
 
-  # 保存 PDF (仅 ggplot 对象)
+  # 保存 PDF + PNG (仅 ggplot 对象)
   if ("ggplot" %in% class(plot_obj)) {
     ggplot2::ggsave(paste0(base_name, ".pdf"), plot_obj, width = width, height = height)
+    ggplot2::ggsave(paste0(base_name, ".png"), plot_obj,
+                    width = width, height = height, dpi = 300, bg = "white")
     print(plot_obj)
   }
 

@@ -2,11 +2,11 @@
 % Please edit documentation in R/report.R
 \name{.generate_simple_report}
 \alias{.generate_simple_report}
-\title{Generate a simple HTML report (fallback)}
+\title{Generate a simple link-only HTML report (fallback for no PNG)}
 \usage{
 .generate_simple_report(output_dir, project_name, pdf_files, csv_files)
 }
 \description{
-Generate a simple HTML report (fallback)
+Generate a simple link-only HTML report (fallback for no PNG)
 }
 \keyword{internal}

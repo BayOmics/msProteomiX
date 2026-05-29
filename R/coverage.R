@@ -5,6 +5,7 @@
 #' 计算蛋白序列覆盖度
 #'
 #' 基于 Peptide 表和 FASTA 数据库计算每个蛋白的序列覆盖度。
+#' 优化版: 预建肽段→蛋白映射, 用 base R gregexpr 替代 stringr。
 #'
 #' @param ms_data MsDataSet 对象 (需含 peptides 数据)
 #' @param fasta_path FASTA 数据库文件路径
@@ -28,6 +29,10 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   if (any(idx_na)) fasta_ids[idx_na] <- sub("\\s.*", "", raw_names[idx_na])
   names(fasta_data) <- fasta_ids
 
+  # 预提取所有蛋白序列为字符向量 (一次性, 避免重复转换)
+  fasta_strings <- as.character(fasta_data)
+  fasta_widths <- Biostrings::width(fasta_data)
+
   # 处理 Peptide ID
   prot_col <- grep("Protein ID|Protein", colnames(pep_df), value = TRUE)[1]
   if (is.na(prot_col)) stop("Cannot find Protein ID column in peptide data.")
@@ -38,20 +43,51 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
       if (length(parts) >= 2) return(parts[2])
     }
     x
-  })
-
-  common_ids <- intersect(pep_df$CleanID, fasta_ids)
-  if (length(common_ids) == 0) stop("No matching protein IDs between peptides and FASTA.")
-  message(sprintf("  Matched proteins: %d", length(common_ids)))
+  }, USE.NAMES = FALSE)
 
   # 序列列
   seq_col <- grep("Peptide Sequence|Sequence", colnames(pep_df), value = TRUE)[1]
   pep_raw_cols <- colnames(pep_df)
 
+  common_ids <- intersect(pep_df$CleanID, fasta_ids)
+  if (length(common_ids) == 0) stop("No matching protein IDs between peptides and FASTA.")
+  message(sprintf("  Matched proteins: %d", length(common_ids)))
+
+  # 预建 蛋白→肽段序列 映射 (全局, 只需做一次)
+  pep_df_valid <- pep_df[pep_df$CleanID %in% common_ids, ]
+  pep_by_prot <- split(pep_df_valid[[seq_col]], pep_df_valid$CleanID)
+  pep_by_prot <- lapply(pep_by_prot, unique)
+
+  # 核心覆盖度计算 (向量化)
+  .calc_one_prot <- function(pid) {
+    fasta_idx <- match(pid, fasta_ids)
+    if (is.na(fasta_idx)) return(NA_real_)
+    prot_len <- fasta_widths[fasta_idx]
+    if (prot_len == 0) return(NA_real_)
+
+    prot_str <- fasta_strings[fasta_idx]
+    pep_seqs <- pep_by_prot[[pid]]
+    if (is.null(pep_seqs) || length(pep_seqs) == 0) return(0)
+
+    cover_mask <- logical(prot_len)
+    for (ps in pep_seqs) {
+      hits <- gregexpr(ps, prot_str, fixed = TRUE)[[1]]
+      if (hits[1] > 0) {
+        pep_len <- nchar(ps)
+        for (h in hits) {
+          cover_mask[h:(h + pep_len - 1L)] <- TRUE
+        }
+      }
+    }
+    sum(cover_mask) / prot_len * 100
+  }
+
   coverage_list <- list()
   unique_grps <- unique(group_info$user_group)
+  n_grps <- length(unique_grps)
 
-  for (grp in unique_grps) {
+  for (g_idx in seq_along(unique_grps)) {
+    grp <- unique_grps[g_idx]
     grp_samples <- group_info$sample_name[group_info$user_group == grp]
     grp_cols <- c()
     for (s in grp_samples) {
@@ -63,48 +99,30 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
     }
     if (length(grp_cols) == 0) next
 
-    is_detected <- rowSums(pep_df[, grp_cols, drop = FALSE] > 0, na.rm = TRUE) > 0
-    sub_pep <- pep_df[is_detected, ]
-    valid_peps <- sub_pep[sub_pep$CleanID %in% common_ids, ]
-    if (nrow(valid_peps) == 0) next
+    is_detected <- rowSums(pep_df_valid[, grp_cols, drop = FALSE] > 0, na.rm = TRUE) > 0
+    detected_prots <- unique(pep_df_valid$CleanID[is_detected])
+    detected_prots <- detected_prots[detected_prots %in% common_ids]
+    if (length(detected_prots) == 0) next
 
-    unique_prots <- unique(valid_peps$CleanID)
-    grp_res <- list()
+    message(sprintf("  [%d/%d] %s: calculating %d proteins...", g_idx, n_grps, grp, length(detected_prots)))
 
-    for (pid in unique_prots) {
-      fasta_idx <- match(pid, names(fasta_data))
-      if (is.na(fasta_idx)) next
+    covs <- vapply(detected_prots, .calc_one_prot, numeric(1))
+    valid <- !is.na(covs)
 
-      curr_peps <- valid_peps[valid_peps$CleanID == pid, ]
-      prot_len <- Biostrings::width(fasta_data[fasta_idx])
-      if (prot_len == 0) next
-
-      cover_mask <- logical(prot_len)
-      pep_seqs <- unique(curr_peps[[seq_col]])
-      prot_str <- as.character(fasta_data[[fasta_idx]])
-
-      for (ps in pep_seqs) {
-        matches <- stringr::str_locate_all(prot_str, stringr::fixed(ps))[[1]]
-        if (nrow(matches) > 0) {
-          for (m in seq_len(nrow(matches))) {
-            cover_mask[matches[m, 1]:matches[m, 2]] <- TRUE
-          }
-        }
-      }
-
-      grp_res[[pid]] <- data.frame(
-        ProteinID = pid,
-        Coverage  = sum(cover_mask) / prot_len * 100,
+    if (any(valid)) {
+      coverage_list[[grp]] <- data.frame(
+        ProteinID = detected_prots[valid],
+        Coverage  = covs[valid],
         Group     = grp,
         stringsAsFactors = FALSE
       )
     }
-
-    if (length(grp_res) > 0) coverage_list[[grp]] <- do.call(rbind, grp_res)
   }
 
   if (length(coverage_list) == 0) return(data.frame())
-  do.call(rbind, coverage_list)
+  result <- do.call(rbind, coverage_list)
+  rownames(result) <- NULL
+  result
 }
 
 

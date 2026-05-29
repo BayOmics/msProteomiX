@@ -670,6 +670,101 @@ plot_qc_panel <- function(ms_data, group_info = NULL,
 
 
 # ==============================================================================
+# 10. Protein abundance rank plot (by group)
+# ==============================================================================
+
+#' Plot protein abundance rank
+#'
+#' Scatter plot of proteins ranked by mean intensity per group.
+#' Useful for assessing dynamic range.
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_protein_rank <- function(ms_data, group_info = NULL,
+                                  output_dir = "output",
+                                  project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  prot_mat <- ms_data$proteins
+  if (is.null(prot_mat) || nrow(prot_mat) == 0) {
+    message(">>> No protein data. Skipping rank plot.")
+    return(invisible(NULL))
+  }
+
+  if (is.null(group_info)) {
+    mean_vals <- rowMeans(prot_mat, na.rm = TRUE)
+    mean_vals <- mean_vals[!is.na(mean_vals) & mean_vals > 0]
+    mean_vals <- sort(mean_vals, decreasing = TRUE)
+    plot_df <- data.frame(
+      Rank = seq_along(mean_vals),
+      Intensity = mean_vals,
+      Group = "All",
+      stringsAsFactors = FALSE
+    )
+  } else {
+    plot_list <- list()
+    for (grp in unique(group_info$user_group)) {
+      grp_samps <- group_info$sample_name[group_info$user_group == grp]
+      grp_samps <- intersect(grp_samps, colnames(prot_mat))
+      if (length(grp_samps) == 0) next
+      mean_vals <- rowMeans(prot_mat[, grp_samps, drop = FALSE], na.rm = TRUE)
+      mean_vals <- mean_vals[!is.na(mean_vals) & mean_vals > 0]
+      mean_vals <- sort(mean_vals, decreasing = TRUE)
+      plot_list[[grp]] <- data.frame(
+        Rank = seq_along(mean_vals),
+        Intensity = mean_vals,
+        Group = grp,
+        stringsAsFactors = FALSE
+      )
+    }
+    plot_df <- do.call(rbind, plot_list)
+  }
+
+  if (nrow(plot_df) == 0) return(invisible(NULL))
+
+  is_log2 <- isTRUE(ms_data$is_log2)
+  if (is_log2) {
+    plot_df$Intensity_plot <- 2^plot_df$Intensity
+  } else {
+    plot_df$Intensity_plot <- plot_df$Intensity
+  }
+
+  n_groups <- length(unique(plot_df$Group))
+  colors <- c("#E64B35", "#4DBBD5", "#00A087", "#F39B7F",
+              "#8491B4", "#91D1C2", "#DC6B5A", "#7E6148")
+  if (n_groups > length(colors)) {
+    colors <- grDevices::colorRampPalette(colors)(n_groups)
+  }
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(
+    x = Rank, y = Intensity_plot, color = Group
+  )) +
+    ggplot2::geom_point(size = 0.5, alpha = 0.6) +
+    ggplot2::scale_y_log10() +
+    ggplot2::scale_color_manual(values = colors[seq_len(n_groups)]) +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::labs(
+      title = "Protein Abundance Rank",
+      x = "Protein Rank",
+      y = "Intensity (log10 scale)"
+    ) +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      legend.position = "bottom"
+    )
+
+  save_plot_and_data(p, plot_df[, c("Rank", "Intensity", "Group")],
+                     project_name, "QC_Protein_Rank",
+                     output_dir = output_dir, width = 9, height = 6)
+  p
+}
+
+# ==============================================================================
 # Internal helpers
 # ==============================================================================
 

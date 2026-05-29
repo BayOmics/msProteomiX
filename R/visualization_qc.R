@@ -718,17 +718,8 @@ plot_qc_mass_error <- function(ms_data, group_info = NULL,
   psm_df <- psm_df[!is.na(psm_df$ppm) & is.finite(psm_df$ppm), ]
   if (nrow(psm_df) == 0) return(invisible(NULL))
 
-  # Compute median BEFORE filtering outliers (for annotation)
+  # Compute per-sample median BEFORE filtering outliers
   med_ppm <- stats::median(psm_df$ppm, na.rm = TRUE)
-
-  # Filter to +/-20 ppm for plotting (so histogram bins are meaningful)
-  n_total <- nrow(psm_df)
-  psm_df <- psm_df[abs(psm_df$ppm) <= 20, ]
-  n_kept <- nrow(psm_df)
-  pct_kept <- round(n_kept / n_total * 100, 1)
-  if (nrow(psm_df) == 0) return(invisible(NULL))
-
-  # Per-sample median for facet-specific annotations
   sample_stats <- do.call(rbind, lapply(split(psm_df, psm_df$qc_sample), function(d) {
     data.frame(
       qc_sample = d$qc_sample[1],
@@ -737,6 +728,13 @@ plot_qc_mass_error <- function(ms_data, group_info = NULL,
     )
   }))
   sample_stats$label <- sprintf("Median = %.2f ppm", sample_stats$med)
+
+  # Filter to +/-20 ppm for plotting (so histogram bins are meaningful)
+  n_total <- nrow(psm_df)
+  psm_df <- psm_df[abs(psm_df$ppm) <= 20, ]
+  n_kept <- nrow(psm_df)
+  pct_kept <- round(n_kept / n_total * 100, 1)
+  if (nrow(psm_df) == 0) return(invisible(NULL))
 
   n_groups <- length(unique(psm_df$qc_group))
 

@@ -17,9 +17,19 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   if (!requireNamespace("Biostrings", quietly = TRUE)) {
     stop("Please install Biostrings: BiocManager::install('Biostrings')")
   }
-  if (nrow(ms_data$peptides) == 0) stop("No peptide data in MsDataSet.")
 
-  pep_df <- ms_data$peptides
+  # Choose data source: peptides first, fallback to psms
+  if (nrow(ms_data$peptides) > 0) {
+    pep_df <- ms_data$peptides
+    data_source <- "peptides"
+  } else if (nrow(ms_data$psms) > 0) {
+    pep_df <- ms_data$psms
+    data_source <- "psms"
+  } else {
+    stop("No peptide or PSM data in MsDataSet.")
+  }
+  message(sprintf("  Using %s data (%d rows) for coverage calculation.", data_source, nrow(pep_df)))
+
   fasta_data <- Biostrings::readAAStringSet(fasta_path)
 
   # 处理 FASTA ID
@@ -34,7 +44,7 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   fasta_widths <- Biostrings::width(fasta_data)
 
   # 处理 Peptide ID
-  prot_col <- grep("Protein ID|Protein", colnames(pep_df), value = TRUE)[1]
+  prot_col <- grep("Protein ID|^Protein$", colnames(pep_df), value = TRUE)[1]
   if (is.na(prot_col)) stop("Cannot find Protein ID column in peptide data.")
 
   pep_df$CleanID <- sapply(as.character(pep_df[[prot_col]]), function(x) {
@@ -46,7 +56,7 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   }, USE.NAMES = FALSE)
 
   # 序列列
-  seq_col <- grep("Peptide Sequence|Sequence", colnames(pep_df), value = TRUE)[1]
+  seq_col <- grep("^Peptide Sequence$|^Peptide$|^Sequence$", colnames(pep_df), value = TRUE)[1]
   pep_raw_cols <- colnames(pep_df)
 
   common_ids <- intersect(pep_df$CleanID, fasta_ids)
@@ -58,6 +68,9 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   has_pos <- all(c("Start", "End") %in% colnames(pep_df_valid))
   keep_cols <- c("CleanID", seq_col)
   if (has_pos) keep_cols <- c(keep_cols, "Start", "End")
+
+  # Detect if data is long-format (has Spectrum File column, e.g. Spectronaut)
+  is_long_format <- "Spectrum File" %in% colnames(pep_df_valid)
 
   # 核心覆盖度计算
   .calc_one_prot <- function(pid, pep_by_prot_grp) {
@@ -105,19 +118,34 @@ calc_coverage <- function(ms_data, fasta_path, group_info) {
   for (g_idx in seq_along(unique_grps)) {
     grp <- unique_grps[g_idx]
     grp_samples <- group_info$sample_name[group_info$user_group == grp]
-    grp_cols <- c()
-    for (s in grp_samples) {
-      s_safe <- escape_regex(s)
-      pat <- paste0("^", s_safe, ".*(Intensity|Spectral Count)$")
-      hits <- grep(pat, pep_raw_cols, ignore.case = TRUE, value = TRUE)
-      hits <- hits[!grepl("(Unique|Total)", hits, ignore.case = TRUE)]
-      grp_cols <- c(grp_cols, hits)
-    }
-    if (length(grp_cols) == 0) next
 
-    # 关键: 只用当前组检出的肽段行 (与参考脚本一致)
-    is_detected <- rowSums(pep_df_valid[, grp_cols, drop = FALSE] > 0, na.rm = TRUE) > 0
-    grp_pep <- pep_df_valid[is_detected, keep_cols, drop = FALSE]
+    if (is_long_format) {
+      # Long-format (Spectronaut psms): filter by Spectrum File column
+      # Spectrum File values may partially match sample names
+      spec_files <- unique(pep_df_valid$`Spectrum File`)
+      matched_files <- c()
+      for (s in grp_samples) {
+        matched_files <- c(matched_files, spec_files[grepl(s, spec_files, fixed = TRUE)])
+      }
+      if (length(matched_files) == 0) next
+      grp_pep <- pep_df_valid[pep_df_valid$`Spectrum File` %in% matched_files, keep_cols, drop = FALSE]
+    } else {
+      # Wide-format (FragPipe peptides): filter by intensity columns
+      grp_cols <- c()
+      for (s in grp_samples) {
+        s_safe <- escape_regex(s)
+        pat <- paste0("^", s_safe, ".*(Intensity|Spectral Count)$")
+        hits <- grep(pat, pep_raw_cols, ignore.case = TRUE, value = TRUE)
+        hits <- hits[!grepl("(Unique|Total)", hits, ignore.case = TRUE)]
+        grp_cols <- c(grp_cols, hits)
+      }
+      if (length(grp_cols) == 0) next
+
+      # 关键: 只用当前组检出的肽段行 (与参考脚本一致)
+      is_detected <- rowSums(pep_df_valid[, grp_cols, drop = FALSE] > 0, na.rm = TRUE) > 0
+      grp_pep <- pep_df_valid[is_detected, keep_cols, drop = FALSE]
+    }
+
     detected_prots <- unique(grp_pep$CleanID)
     if (length(detected_prots) == 0) next
 

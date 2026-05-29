@@ -718,7 +718,16 @@ plot_qc_mass_error <- function(ms_data, group_info = NULL,
   psm_df <- psm_df[!is.na(psm_df$ppm) & is.finite(psm_df$ppm), ]
   if (nrow(psm_df) == 0) return(invisible(NULL))
 
+  # Compute median BEFORE filtering outliers (for annotation)
   med_ppm <- stats::median(psm_df$ppm, na.rm = TRUE)
+
+  # Filter to ±20 ppm for plotting (so histogram bins are meaningful)
+  n_total <- nrow(psm_df)
+  psm_df <- psm_df[abs(psm_df$ppm) <= 20, ]
+  n_kept <- nrow(psm_df)
+  pct_kept <- round(n_kept / n_total * 100, 1)
+  if (nrow(psm_df) == 0) return(invisible(NULL))
+
   n_groups <- length(unique(psm_df$qc_group))
 
   p <- ggplot2::ggplot(psm_df, ggplot2::aes(x = ppm, fill = qc_group)) +
@@ -728,11 +737,11 @@ plot_qc_mass_error <- function(ms_data, group_info = NULL,
     ggplot2::geom_vline(xintercept = med_ppm, linetype = "solid",
                         color = "#E64B35", linewidth = 0.8) +
     ggplot2::annotate("text", x = med_ppm, y = Inf, vjust = 2, hjust = -0.1,
-                      label = sprintf("Median = %.2f ppm", med_ppm),
-                      color = "#E64B35", fontface = "bold", size = 3.5) +
+                      label = sprintf("Median = %.2f ppm\n(%.1f%% shown)",
+                                      med_ppm, pct_kept),
+                      color = "#E64B35", fontface = "bold", size = 3) +
     ggplot2::facet_wrap(~ qc_sample, scales = "free_y") +
     ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
-    ggplot2::coord_cartesian(xlim = c(-20, 20)) +
     ggplot2::theme_bw() +
     ggplot2::labs(title = "Mass Error Distribution",
                   x = "Mass Error (ppm)", y = "PSM Count", fill = "Group") +

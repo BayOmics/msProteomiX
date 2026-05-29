@@ -3,7 +3,7 @@
 \docType{data}
 \name{.msProteomiX_env}
 \alias{.msProteomiX_env}
-\title{msProteomiX 包内部环境}
+\title{msProteomiX shared environment}
 \format{
 An object of class \code{environment} of length 0.
 }
@@ -11,6 +11,6 @@ An object of class \code{environment} of length 0.
 .msProteomiX_env
 }
 \description{
-用于在 RStudio Source 模式下跨脚本传递数据
+Used to pass data between scripts in RStudio Source mode
 }
-\keyword{internal}
+\keyword{datasets}

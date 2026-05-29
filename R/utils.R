@@ -5,9 +5,9 @@
 # NULL-coalescing operator (base R only has this from 4.4.0+)
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
-#' @title msProteomiX 包内部环境
-#' @description 用于在 RStudio Source 模式下跨脚本传递数据
-#' @keywords internal
+#' @title msProteomiX shared environment
+#' @description Used to pass data between scripts in RStudio Source mode
+#' @export
 .msProteomiX_env <- new.env(parent = emptyenv())
 #' 创建 msProteomiX 分析项目
 #'

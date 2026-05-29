@@ -17,10 +17,16 @@ data-raw/*.fasta
 inst/extdata/**/*.tsv
 inst/extdata/**/*.fasta
 
-# Output
+# Output & test artifacts
 output/
-*.pdf
-*.png
+test_output/
+test_validation.R
+
+# User data
+搜库软件输出结果demo/
+
+# Internal docs (backed up to WPSCloud)
+project_wiki/
 
 # OS
 .DS_Store
@@ -29,8 +35,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
-test_validation.R
-test_output/
-搜库软件输出结果demo/
+
+# Runtime artifacts in inst/scripts
 inst/scripts/wkdir/
 inst/scripts/output/

@@ -1,67 +1,89 @@
-# msProteomiX <img src="man/figures/logo.png" align="right" height="138" />
+# msProteomiX
 
 **Multi-Engine Mass Spectrometry Proteomics Data Processing**
 
-一个面向质谱蛋白组学的 R 包，支持多种搜库引擎的统一数据处理和可视化。
+A comprehensive R package for processing and visualizing mass spectrometry proteomics data from multiple search engines. Designed for both interactive use (RStudio Source mode) and programmatic workflows.
 
-## 支持的搜库引擎
+## Supported Search Engines
 
-| Engine | Status | Input Files |
-|--------|--------|-------------|
-| **FragPipe** | ✅ Supported | `combined_protein.tsv`, `combined_peptide.tsv` |
-| **MaxQuant** | 🔜 Coming | `proteinGroups.txt` |
-| **Proteome Discoverer** | 🔜 Coming | `_Proteins.txt` |
-| **DIA-NN** | 🔜 Coming | `report.pg_matrix.tsv` |
+| Engine | Status | Detection | Input Files |
+|--------|--------|-----------|-------------|
+| **FragPipe** | ✅ Complete | Auto | `combined_protein.tsv`, `combined_peptide.tsv` |
+| **Spectronaut** | ✅ Complete | Auto | `*_Report.tsv` (Run Pivot export) |
+| **MaxQuant** | 🔲 Planned | Auto | `proteinGroups.txt` |
+| **Proteome Discoverer** | 🔲 Planned | Auto | `*_Proteins.txt` |
+| **DIA-NN** | 🔲 Planned | Auto | `report.pg_matrix.tsv` |
 
-## 分析功能
+## Analysis Features
 
-- 📊 定性分析柱状图 (Protein/Peptide/PSM counts)
-- 🔵 Venn/UpSet 蛋白重叠分析
-- 📈 PCA 主成分分析
-- 📉 CV 变异系数评估
-- 🗺️ 相关性热图
-- 🌋 差异分析 & 火山图 (Limma / t-test)
-- 📏 序列覆盖度分析
-- 🧬 GO 富集分析
-- 🔬 AP-MS 亲和纯化分析 (Coming Soon)
+| Module | Scripts | Functions |
+|--------|---------|-----------|
+| Data Import | `01` | `read_ms_data()`, `interactive_grouping()` |
+| ID Barplot | `02` | `plot_id_barplot()` (Protein + Peptide + PSM) |
+| Venn / UpSet | `03` | `plot_venn()`, `plot_upset()` |
+| PCA | `04` | `plot_pca()` (95% ellipses + labels) |
+| CV Assessment | `05` | `plot_cv_boxplot()`, `plot_cv_violin()` |
+| Correlation Heatmap | `06` | `plot_corr_heatmap()` (R² values) |
+| Differential Analysis | `07` | `run_diff_analysis()`, `plot_volcano()` |
+| Sequence Coverage | `08` | `calc_coverage()`, `plot_coverage()` |
+| GO Enrichment | `09` | `run_go_enrichment()`, `plot_go_bubble()` |
+| AP-MS Analysis | `20` | `normalize_bait()`, `run_anova_timecourse()`, `run_mfuzz_cluster()` |
 
-## 快速上手
+## Quick Start
 
-### 安装
+### Installation
 
 ```r
-# 在 RStudio 中运行
 install.packages("devtools")
 devtools::install_github("BayOmics/msProteomiX")
 ```
 
-### 使用 (RStudio 交互模式)
-
-1. 打开 `inst/scripts/00_安装指南.R`，点击 Source
-2. 打开 `inst/scripts/01_数据导入与分组.R`，点击 Source
-3. 按需运行 02-09 分析脚本
-
-### 使用 (编程模式)
+### Interactive Mode (Recommended for non-programmers)
 
 ```r
 library(msProteomiX)
 
-# 读取数据
-ms <- read_ms_data("path/to/fragpipe_output/", engine = "auto")
+# 1. Create project structure
+create_project("~/Desktop/MyProject")
 
-# 设置分组
-groups <- set_groups(
-  get_sample_names(ms),
-  c("Control", "Control", "Treatment", "Treatment")
-)
+# 2. Place search engine output in wkdir/
+# 3. Open scripts/01 in RStudio → Source
+# 4. Run scripts 02-09 as needed
+```
 
-# 差异分析
+### Programmatic Mode
+
+```r
+library(msProteomiX)
+
+# Read data (auto-detects engine)
+ms <- read_ms_data("path/to/results/")
+
+# Set groups
+groups <- set_groups(ms$sample_names, c("Ctrl", "Ctrl", "Treatment", "Treatment"))
+
+# Differential analysis
 result <- run_diff_analysis(ms, groups, method = "limma",
-                             ref_group = "Control", test_group = "Treatment")
+                            ref_group = "Ctrl", test_group = "Treatment")
 
-# 火山图
+# Volcano plot
 plot_volcano(result, label_top = 20)
 ```
+
+### Updating Scripts
+
+After package update, sync your project scripts:
+
+```r
+library(msProteomiX)
+update_scripts()  # auto-detects project, overwrites outdated scripts
+```
+
+## Documentation
+
+- [Design Specification](vignettes/design_specification.md) — Architecture, data structures, extension guide
+- [CHANGELOG](CHANGELOG.md) — Version history
+- [Contributing](.github/CONTRIBUTING.md) — Development standards and pitfalls
 
 ## License
 

@@ -751,3 +751,145 @@ plot_gsea_result <- function(gsea_result,
                      output_dir = output_dir, width = 12, height = 8)
   p
 }
+
+
+#' Plot classic GSEA enrichment running score plots
+#'
+#' Generates the classic GSEA visualization with:
+#' - Running enrichment score curve
+#' - Gene hit barcode positions
+#' - Ranked list metric
+#'
+#' @param gsea_result gseaResult object from run_gsea_analysis()
+#' @param top_n Number of top pathways to plot (default 3, each activated and suppressed)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return List of ggplot objects (invisible)
+#' @export
+plot_gsea_enrichment <- function(gsea_result,
+                                  top_n = 3,
+                                  output_dir = "output",
+                                  project_name = "Project") {
+  if (is.null(gsea_result) || nrow(gsea_result) == 0) {
+    message(">>> No GSEA data to plot.")
+    return(invisible(NULL))
+  }
+
+  if (!requireNamespace("enrichplot", quietly = TRUE)) {
+    stop("Please install enrichplot: BiocManager::install('enrichplot')")
+  }
+
+  ensure_output_dir(output_dir)
+  res_df <- gsea_result@result
+
+  contrast <- attr(gsea_result, "contrast")
+  suffix_base <- if (!is.null(contrast)) paste0("GSEA_ES_", contrast) else "GSEA_ES"
+
+  plots <- list()
+
+  # Top activated (NES > 0) and suppressed (NES < 0)
+  activated <- res_df[res_df$NES > 0, ]
+  activated <- activated[order(activated$NES, decreasing = TRUE), ]
+  suppressed <- res_df[res_df$NES < 0, ]
+  suppressed <- suppressed[order(suppressed$NES), ]
+
+  selected <- rbind(
+    utils::head(activated, top_n),
+    utils::head(suppressed, top_n)
+  )
+
+  if (nrow(selected) == 0) {
+    message(">>> No pathways to plot.")
+    return(invisible(NULL))
+  }
+
+  # Find indices of selected pathways in the result
+  pathway_ids <- selected$ID
+  pathway_idx <- which(gsea_result@result$ID %in% pathway_ids)
+
+  if (length(pathway_idx) == 0) {
+    message(">>> Pathway index mismatch.")
+    return(invisible(NULL))
+  }
+
+  # Generate combined enrichment plot
+  tryCatch({
+    p <- enrichplot::gseaplot2(
+      gsea_result,
+      geneSetID = pathway_idx,
+      pvalue_table = TRUE,
+      ES_geom = "line",
+      base_size = 11
+    )
+
+    suffix <- paste0(suffix_base, "_top", length(pathway_idx))
+
+    # Save using ggsave for patchwork objects
+    base_name <- file.path(output_dir,
+                            paste0(project_name, "_", suffix))
+
+    plot_height <- 4 + length(pathway_idx) * 0.3
+    ggplot2::ggsave(paste0(base_name, ".pdf"), p,
+                    width = 10, height = plot_height)
+    ggplot2::ggsave(paste0(base_name, ".png"), p,
+                    width = 10, height = plot_height, dpi = 300, bg = "white")
+
+    # Save pathway info CSV
+    utils::write.csv(selected[, c("ID", "Description", "NES",
+                                   "pvalue", "p.adjust", "setSize")],
+                     paste0(base_name, ".csv"), row.names = FALSE)
+
+    message(paste0("\u2705 \u5df2\u751f\u6210: ", suffix))
+    Sys.sleep(0.3)
+    plots[["combined"]] <- p
+
+  }, error = function(e) {
+    message(">>> Combined enrichment plot failed: ", e$message)
+  })
+
+  # Also generate individual plots for top 2 activated + 2 suppressed
+  top_individual <- rbind(
+    utils::head(activated, min(2, nrow(activated))),
+    utils::head(suppressed, min(2, nrow(suppressed)))
+  )
+
+  for (i in seq_len(nrow(top_individual))) {
+    pw_id <- top_individual$ID[i]
+    pw_name <- top_individual$Description[i]
+    pw_idx <- which(gsea_result@result$ID == pw_id)
+
+    if (length(pw_idx) == 0) next
+
+    tryCatch({
+      p_single <- enrichplot::gseaplot2(
+        gsea_result,
+        geneSetID = pw_idx,
+        title = pw_name,
+        pvalue_table = TRUE,
+        ES_geom = "line",
+        base_size = 11
+      )
+
+      # Clean pathway name for filename
+      clean_name <- gsub("[^A-Za-z0-9_]", "_", pw_name)
+      clean_name <- gsub("_+", "_", clean_name)
+      clean_name <- substr(clean_name, 1, 60)
+      single_suffix <- paste0(suffix_base, "_", clean_name)
+      single_base <- file.path(output_dir,
+                                paste0(project_name, "_", single_suffix))
+
+      ggplot2::ggsave(paste0(single_base, ".pdf"), p_single,
+                      width = 8, height = 6)
+      ggplot2::ggsave(paste0(single_base, ".png"), p_single,
+                      width = 8, height = 6, dpi = 300, bg = "white")
+
+      message(paste0("\u2705 \u5df2\u751f\u6210: ", single_suffix))
+      plots[[pw_id]] <- p_single
+
+    }, error = function(e) {
+      message(sprintf(">>> Plot for %s failed: %s", pw_name, e$message))
+    })
+  }
+
+  invisible(plots)
+}

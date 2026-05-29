@@ -12,8 +12,10 @@
 # ║   • NES < 0: 通路在实验组中下调/抑制                       ║
 # ║                                                              ║
 # ║  【输出文件】                                                ║
-# ║   • output/GSEA_KEGG_*        — GSEA 气泡图                ║
-# ║   • output/GSEA_KEGG_*.csv    — 富集结果表                 ║
+# ║   • output/GSEA_KEGG_*        — GSEA NES 气泡图             ║
+# ║   • output/GSEA_ES_*_top*     — 经典富集曲线图 (合并)       ║
+# ║   • output/GSEA_ES_*_pathway  — 单通路富集曲线图            ║
+# ║   • output/GSEA_*.csv         — 富集结果表                  ║
 # ║                                                              ║
 # ╚══════════════════════════════════════════════════════════════╝
 
@@ -24,7 +26,8 @@ setup_workdir()
 # ━━━━━━━━━━━━━━━━━ 用户设置 (可修改) ━━━━━━━━━━━━━━━━━
 org_db   <- "org.Hs.eg.db"   # 物种注释包: org.Hs.eg.db(人), org.Mm.eg.db(鼠)
 organism <- "hsa"             # KEGG 物种: hsa(人), mmu(鼠)
-top_n    <- 20                # 展示前 N 个通路
+top_n    <- 20                # NES 气泡图展示前 N 个通路
+es_top_n <- 3                 # 富集曲线图: 各展示前 N 个激活/抑制通路
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # --- 主程序 ---
@@ -45,10 +48,20 @@ gsea_result <- run_gsea_analysis(
 
 # 2. 可视化
 if (!is.null(gsea_result) && nrow(gsea_result) > 0) {
-  message("\n>>> Plotting GSEA results...")
+  # 2a. NES 气泡图 (总览)
+  message("\n>>> Plotting GSEA NES bubble chart...")
   p <- plot_gsea_result(
     gsea_result,
     top_n = top_n,
+    output_dir = "output",
+    project_name = project_name
+  )
+
+  # 2b. 经典富集曲线图 (running enrichment score)
+  message("\n>>> Plotting GSEA enrichment curves...")
+  plot_gsea_enrichment(
+    gsea_result,
+    top_n = es_top_n,
     output_dir = "output",
     project_name = project_name
   )

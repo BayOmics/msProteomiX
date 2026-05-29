@@ -133,16 +133,34 @@ calc_alk_efficiency <- function(psm_df) {
   if (nrow(psm_df) == 0) return(NA_real_)
 
   pep_col <- "Peptide"
-  mod_col <- grep("Assigned.Modification", colnames(psm_df),
-                   value = TRUE, ignore.case = TRUE)[1]
+  if (!pep_col %in% colnames(psm_df)) return(NA_real_)
 
-  if (is.na(mod_col) || !pep_col %in% colnames(psm_df)) return(NA_real_)
-
+  # Find Cys-containing PSMs first
   cys_psm <- psm_df[grepl("C", psm_df[[pep_col]]), ]
   if (nrow(cys_psm) == 0) return(NA_real_)
 
-  alk_count <- sum(grepl("C", cys_psm[[mod_col]]), na.rm = TRUE)
-  round((alk_count / nrow(cys_psm)) * 100, digits = 2)
+  # Strategy 1: FragPipe "Assigned Modifications" column
+  mod_col <- grep("Assigned.Modification", colnames(psm_df),
+                   value = TRUE, ignore.case = TRUE)[1]
+  if (!is.na(mod_col)) {
+    # FragPipe: "5C(57.0215)" pattern
+    alk_count <- sum(grepl("C", cys_psm[[mod_col]]), na.rm = TRUE)
+    return(round((alk_count / nrow(cys_psm)) * 100, digits = 2))
+  }
+
+  # Strategy 2: Spectronaut "Modified Peptide" column
+  #   e.g. "_C[Carbamidomethyl (C)]PEPTIDEK_"
+  modpep_col <- grep("^Modified.Peptide$", colnames(psm_df),
+                      value = TRUE, ignore.case = TRUE)[1]
+  if (!is.na(modpep_col)) {
+    mod_pep <- cys_psm[[modpep_col]]
+    # Alkylated Cys = has Carbamidomethyl/CAM on C
+    alk_pattern <- "C\\[Carbamidomethyl|C\\[CAM|C\\[57"
+    alk_count <- sum(grepl(alk_pattern, mod_pep, ignore.case = TRUE), na.rm = TRUE)
+    return(round((alk_count / nrow(cys_psm)) * 100, digits = 2))
+  }
+
+  NA_real_
 }
 
 

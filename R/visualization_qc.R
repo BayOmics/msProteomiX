@@ -1,0 +1,687 @@
+# ==============================================================================
+# msProteomiX — QC Method Evaluation Visualization
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Internal helper: match PSM rows to samples via Spectrum File column
+# Returns a data.frame with original PSM columns + 'qc_sample' + 'qc_group'
+# ------------------------------------------------------------------------------
+.psm_with_groups <- function(psm_df, group_info, sample_names) {
+  if (is.null(group_info) || !"Spectrum File" %in% colnames(psm_df)) {
+    psm_df$qc_sample <- "All"
+    psm_df$qc_group  <- "All"
+    return(psm_df)
+  }
+
+  psm_df$qc_sample <- NA_character_
+  psm_df$qc_group  <- NA_character_
+  sf_col <- as.character(psm_df[["Spectrum File"]])
+
+  for (i in seq_len(nrow(group_info))) {
+    sname <- group_info$sample_name[i]
+    matched <- grepl(sname, sf_col, fixed = TRUE)
+    psm_df$qc_sample[matched] <- sname
+    psm_df$qc_group[matched]  <- group_info$user_group[i]
+  }
+
+  psm_df <- psm_df[!is.na(psm_df$qc_group), ]
+  psm_df
+}
+
+
+# ==============================================================================
+# 1. Peptide length distribution (by group)
+# ==============================================================================
+
+#' Plot peptide length distribution
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame (NULL = overall)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_peptide_length <- function(ms_data, group_info = NULL,
+                                   output_dir = "output",
+                                   project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping peptide length plot.")
+    return(invisible(NULL))
+  }
+
+  pep_col <- .find_column(psm_df, c("Peptide", "Modified Sequence",
+                                     "Stripped.Sequence", "Sequence"))
+  if (is.null(pep_col)) {
+    message(">>> Cannot find peptide sequence column. Skipping.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+
+  seqs <- gsub("[^A-Za-z]", "", as.character(psm_df[[pep_col]]))
+  pep_lengths <- nchar(seqs)
+  plot_df <- data.frame(peptide_length = pep_lengths,
+                        Group = psm_df$qc_group,
+                        stringsAsFactors = FALSE)
+  plot_df <- plot_df[plot_df$peptide_length > 0 & !is.na(plot_df$peptide_length), ]
+
+  if (nrow(plot_df) == 0) return(invisible(NULL))
+
+  n_groups <- length(unique(plot_df$Group))
+  colors <- mspx_colors(n_groups)
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = peptide_length, color = Group)) +
+    ggplot2::geom_density(linewidth = 1) +
+    ggplot2::scale_color_manual(values = colors) +
+    ggplot2::scale_x_continuous(limits = c(5, 55), breaks = seq(5, 55, 5)) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Peptide Length Distribution",
+                  x = "Peptide Length (amino acids)", y = "Density") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  save_plot_and_data(p, plot_df, project_name, "QC_Peptide_Length",
+                     output_dir = output_dir, width = 8, height = 5)
+  p
+}
+
+
+# ==============================================================================
+# 2. Precursor charge distribution (by group)
+# ==============================================================================
+
+#' Plot precursor charge distribution
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame (NULL = overall)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_charge_distribution <- function(ms_data, group_info = NULL,
+                                        output_dir = "output",
+                                        project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping charge distribution plot.")
+    return(invisible(NULL))
+  }
+
+  charge_col <- .find_column(psm_df, c("Charge", "Precursor Charge",
+                                        "charge", "PrecursorCharge"))
+  if (is.null(charge_col)) {
+    message(">>> Cannot find charge column. Skipping.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+
+  charges <- suppressWarnings(as.integer(psm_df[[charge_col]]))
+  plot_df <- data.frame(charge = factor(charges), Group = psm_df$qc_group,
+                        stringsAsFactors = FALSE)
+  plot_df <- plot_df[!is.na(plot_df$charge), ]
+
+  if (nrow(plot_df) == 0) return(invisible(NULL))
+
+  n_groups <- length(unique(plot_df$Group))
+  colors <- mspx_colors(n_groups)
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = charge, fill = Group)) +
+    ggplot2::geom_bar(position = "dodge", color = "white") +
+    ggplot2::scale_fill_manual(values = colors) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Precursor Charge Distribution",
+                  x = "Charge State", y = "Number of PSMs") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  save_plot_and_data(p, plot_df, project_name, "QC_Charge_Distribution",
+                     output_dir = output_dir, width = 7, height = 5)
+  p
+}
+
+
+# ==============================================================================
+# 3. Missed cleavage distribution (stacked by group)
+# ==============================================================================
+
+#' Plot missed cleavage distribution
+#'
+#' Stacked bar chart showing missed cleavage proportions per group.
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame (NULL = overall)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_missed_cleavage <- function(ms_data, group_info = NULL,
+                                    output_dir = "output",
+                                    project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping missed cleavage plot.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+
+  mc_col <- .find_column(psm_df, c("Number of Missed Cleavages",
+                                    "Missed.Cleavage", "Missed Cleavages"))
+  if (!is.null(mc_col)) {
+    mc_values <- suppressWarnings(as.integer(psm_df[[mc_col]]))
+  } else {
+    pep_col <- .find_column(psm_df, c("Peptide", "Stripped.Sequence", "Sequence"))
+    if (is.null(pep_col)) {
+      message(">>> Cannot determine missed cleavages. Skipping.")
+      return(invisible(NULL))
+    }
+    mc_values <- calc_missed_cleavage(as.character(psm_df[[pep_col]]))
+  }
+
+  mc_str <- as.character(mc_values)
+  mc_str[mc_values >= 2] <- "2+"
+  plot_df <- data.frame(Group = psm_df$qc_group, MC = mc_str,
+                        stringsAsFactors = FALSE)
+  plot_df <- plot_df[!is.na(plot_df$MC), ]
+
+  if (nrow(plot_df) == 0) return(invisible(NULL))
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = Group, fill = MC)) +
+    ggplot2::geom_bar(position = "fill") +
+    ggplot2::scale_y_continuous(labels = scales::percent) +
+    ggplot2::scale_fill_brewer(palette = "Blues") +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Missed Cleavage Rate",
+                  x = NULL, y = "Proportion", fill = "Missed\nCleavages") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  # Summary table
+  summ_df <- as.data.frame(table(plot_df$Group, plot_df$MC))
+  colnames(summ_df) <- c("Group", "MC", "Count")
+
+  save_plot_and_data(p, summ_df, project_name, "QC_Missed_Cleavage",
+                     output_dir = output_dir, width = 7, height = 5)
+  p
+}
+
+
+# ==============================================================================
+# 4. Modification type distribution
+# ==============================================================================
+
+#' Plot modification type distribution
+#'
+#' @param ms_data MsDataSet object
+#' @param top_n Number of top modifications to show
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_modification <- function(ms_data, top_n = 10,
+                                 output_dir = "output",
+                                 project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping modification plot.")
+    return(invisible(NULL))
+  }
+
+  mod_col <- .find_column(psm_df, c("Assigned Modifications", "Modifications",
+                                     "Modified Sequence", "Modified Peptide",
+                                     "assigned_modifications"))
+  if (is.null(mod_col)) {
+    message(">>> Cannot find modification column. Skipping.")
+    return(invisible(NULL))
+  }
+
+  mod_strings <- as.character(psm_df[[mod_col]])
+  mod_strings <- mod_strings[!is.na(mod_strings) & mod_strings != ""]
+  if (length(mod_strings) == 0) return(invisible(NULL))
+
+  # 检测格式: Spectronaut = [Mod (X)] inline; FragPipe = "N-term(x)" comma/semicolon-sep
+  if (any(grepl("\\[", mod_strings))) {
+    # Spectronaut format: extract [Modification (X)] patterns
+    all_mods <- unlist(regmatches(mod_strings, gregexpr("\\[([^]]+)\\]", mod_strings)))
+    all_mods <- gsub("^\\[|\\]$", "", all_mods)  # remove brackets
+  } else {
+    # FragPipe / generic format: split by , or ;
+    all_mods <- unlist(strsplit(mod_strings, "[,;]"))
+    all_mods <- trimws(all_mods)
+    all_mods <- gsub("^[0-9]+", "", all_mods)
+    all_mods <- trimws(all_mods)
+  }
+  all_mods <- all_mods[all_mods != ""]
+  if (length(all_mods) == 0) return(invisible(NULL))
+
+  mod_table <- sort(table(all_mods), decreasing = TRUE)
+  mod_df <- data.frame(mod_type = names(mod_table),
+                       mod_count = as.integer(mod_table),
+                       stringsAsFactors = FALSE)
+  mod_df <- utils::head(mod_df, top_n)
+  mod_df$mod_type <- factor(mod_df$mod_type, levels = rev(mod_df$mod_type))
+
+  p <- ggplot2::ggplot(mod_df, ggplot2::aes(x = mod_type, y = mod_count)) +
+    ggplot2::geom_bar(stat = "identity", fill = "#8491B4", color = "white") +
+    ggplot2::coord_flip() +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = paste("Top", min(top_n, nrow(mod_df)),
+                                "Modification Types"),
+                  x = NULL, y = "Count") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  save_plot_and_data(p, mod_df, project_name, "QC_Modification_Types",
+                     output_dir = output_dir, width = 9, height = 6)
+  p
+}
+
+
+# ==============================================================================
+# 5. GRAVY hydrophobicity distribution (by group)
+# ==============================================================================
+
+#' Plot GRAVY hydrophobicity distribution
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame (NULL = overall)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_gravy <- function(ms_data, group_info = NULL,
+                          output_dir = "output",
+                          project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping GRAVY plot.")
+    return(invisible(NULL))
+  }
+
+  pep_col <- .find_column(psm_df, c("Peptide", "Stripped.Sequence", "Sequence"))
+  if (is.null(pep_col)) {
+    message(">>> Cannot find peptide column. Skipping GRAVY plot.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+
+  # Subsample if large
+  if (nrow(psm_df) > 20000) psm_df <- psm_df[sample(nrow(psm_df), 20000), ]
+
+  gravy <- calc_gravy(as.character(psm_df[[pep_col]]))
+  plot_df <- data.frame(GRAVY = gravy, Group = psm_df$qc_group,
+                        stringsAsFactors = FALSE)
+  plot_df <- plot_df[!is.na(plot_df$GRAVY), ]
+  if (nrow(plot_df) == 0) return(invisible(NULL))
+
+  n_groups <- length(unique(plot_df$Group))
+  colors <- mspx_colors(n_groups)
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = GRAVY, color = Group)) +
+    ggplot2::geom_density(linewidth = 1) +
+    ggplot2::scale_color_manual(values = colors) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Hydrophobicity (GRAVY) Distribution",
+                  x = "GRAVY Score", y = "Density") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  save_plot_and_data(p, plot_df, project_name, "QC_GRAVY",
+                     output_dir = output_dir, width = 8, height = 5)
+  p
+}
+
+
+# ==============================================================================
+# 6. pI isoelectric point distribution (by group)
+# ==============================================================================
+
+#' Plot peptide pI distribution
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame (NULL = overall)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_pi <- function(ms_data, group_info = NULL,
+                       output_dir = "output",
+                       project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping pI plot.")
+    return(invisible(NULL))
+  }
+
+  pep_col <- .find_column(psm_df, c("Peptide", "Stripped.Sequence", "Sequence"))
+  if (is.null(pep_col)) {
+    message(">>> Cannot find peptide column. Skipping pI plot.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+
+  if (nrow(psm_df) > 20000) psm_df <- psm_df[sample(nrow(psm_df), 20000), ]
+
+  pI_vals <- calc_pI_seq(as.character(psm_df[[pep_col]]))
+  plot_df <- data.frame(pI = pI_vals, Group = psm_df$qc_group,
+                        stringsAsFactors = FALSE)
+  plot_df <- plot_df[!is.na(plot_df$pI), ]
+  if (nrow(plot_df) == 0) return(invisible(NULL))
+
+  n_groups <- length(unique(plot_df$Group))
+  colors <- mspx_colors(n_groups)
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = pI, color = Group)) +
+    ggplot2::geom_density(linewidth = 1) +
+    ggplot2::scale_color_manual(values = colors) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Peptide pI Distribution",
+                  x = "Isoelectric Point (pI)", y = "Density") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  save_plot_and_data(p, plot_df, project_name, "QC_pI",
+                     output_dir = output_dir, width = 8, height = 5)
+  p
+}
+
+
+# ==============================================================================
+# 7. M/Z distribution (by group)
+# ==============================================================================
+
+#' Plot M/Z distribution
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame (NULL = overall)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_mz <- function(ms_data, group_info = NULL,
+                       output_dir = "output",
+                       project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping M/Z plot.")
+    return(invisible(NULL))
+  }
+
+  mz_col <- .find_column(psm_df, c("Calibrated Observed M/Z", "Observed M/Z",
+                                     "m/z", "MZ", "PrecursorMZ"))
+  if (is.null(mz_col)) {
+    message(">>> Cannot find M/Z column. Skipping.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+
+  mz_vals <- suppressWarnings(as.numeric(psm_df[[mz_col]]))
+  plot_df <- data.frame(MZ = mz_vals, Group = psm_df$qc_group,
+                        stringsAsFactors = FALSE)
+  plot_df <- plot_df[!is.na(plot_df$MZ) & plot_df$MZ > 0, ]
+  if (nrow(plot_df) == 0) return(invisible(NULL))
+
+  n_groups <- length(unique(plot_df$Group))
+  colors <- mspx_colors(n_groups)
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = MZ, color = Group)) +
+    ggplot2::geom_density(linewidth = 1) +
+    ggplot2::scale_color_manual(values = colors) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "M/Z Distribution",
+                  x = "M/Z", y = "Density") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  save_plot_and_data(p, plot_df, project_name, "QC_MZ",
+                     output_dir = output_dir, width = 8, height = 5)
+  p
+}
+
+
+# ==============================================================================
+# 8. Cumulative intensity curve (dynamic range)
+# ==============================================================================
+
+#' Plot cumulative intensity curve
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_cumulative_intensity <- function(ms_data, group_info = NULL,
+                                         output_dir = "output",
+                                         project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  prot_mat <- ms_data$proteins
+  if (is.null(prot_mat) || ncol(prot_mat) == 0) {
+    message(">>> No protein data. Skipping cumulative intensity plot.")
+    return(invisible(NULL))
+  }
+  if (is.null(group_info)) {
+    message(">>> group_info required for cumulative intensity. Skipping.")
+    return(invisible(NULL))
+  }
+
+  unique_groups <- unique(group_info$user_group)
+  cum_list <- list()
+
+  for (grp in unique_groups) {
+    grp_samples <- group_info$sample_name[group_info$user_group == grp]
+    grp_samples <- intersect(grp_samples, colnames(prot_mat))
+    if (length(grp_samples) == 0) next
+
+    sub_mat <- as.matrix(prot_mat[, grp_samples, drop = FALSE])
+    sub_mat[sub_mat == 0] <- NA
+    means <- rowMeans(sub_mat, na.rm = TRUE)
+    valid <- means[!is.na(means) & means > 0]
+    if (length(valid) == 0) next
+
+    sorted <- sort(valid, decreasing = TRUE)
+    cum_prop <- cumsum(sorted) / sum(sorted)
+    cum_list[[grp]] <- data.frame(Group = grp,
+                                  Rank = seq_along(cum_prop),
+                                  CumulativeProp = cum_prop,
+                                  stringsAsFactors = FALSE)
+  }
+
+  if (length(cum_list) == 0) return(invisible(NULL))
+  plot_df <- do.call(rbind, cum_list)
+
+  n_groups <- length(unique(plot_df$Group))
+  colors <- mspx_colors(n_groups)
+
+  p <- ggplot2::ggplot(plot_df,
+                        ggplot2::aes(x = Rank, y = CumulativeProp,
+                                    color = Group)) +
+    ggplot2::geom_line(linewidth = 1) +
+    ggplot2::geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey") +
+    ggplot2::scale_color_manual(values = colors) +
+    ggplot2::scale_y_continuous(labels = scales::percent) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Dynamic Range (Cumulative Intensity)",
+                  x = "Protein Rank", y = "Cumulative %") +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"))
+
+  save_plot_and_data(p, plot_df, project_name, "QC_Cumulative_Intensity",
+                     output_dir = output_dir, width = 8, height = 5)
+  p
+}
+
+
+# ==============================================================================
+# 9. Cysteine peptide ratio + Alkylation efficiency (per sample)
+# ==============================================================================
+
+#' Plot Cys-containing peptide ratio and alkylation efficiency
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_cys_alkylation <- function(ms_data, group_info = NULL,
+                                   output_dir = "output",
+                                   project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data available. Skipping Cys/Alkylation plot.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+  unique_samples <- unique(psm_df$qc_sample)
+
+  result_list <- list()
+  for (samp in unique_samples) {
+    sub <- psm_df[psm_df$qc_sample == samp, ]
+    grp <- sub$qc_group[1]
+    cys_pct <- calc_cys_percent(sub)
+    alk_eff <- calc_alk_efficiency(sub)
+
+    result_list[[samp]] <- data.frame(
+      Sample = samp, Group = grp,
+      Cys_Percent = ifelse(is.na(cys_pct), 0, cys_pct),
+      Alk_Efficiency = ifelse(is.na(alk_eff), 0, alk_eff),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  if (length(result_list) == 0) return(invisible(NULL))
+  plot_df <- do.call(rbind, result_list)
+
+  # Reshape to long format
+  long_df <- rbind(
+    data.frame(Sample = plot_df$Sample, Group = plot_df$Group,
+               Metric = "Cys Peptide %", Value = plot_df$Cys_Percent,
+               stringsAsFactors = FALSE),
+    data.frame(Sample = plot_df$Sample, Group = plot_df$Group,
+               Metric = "Alkylation Eff. %", Value = plot_df$Alk_Efficiency,
+               stringsAsFactors = FALSE)
+  )
+
+  n_groups <- length(unique(long_df$Group))
+  colors <- mspx_colors(n_groups)
+
+  p <- ggplot2::ggplot(long_df,
+                        ggplot2::aes(x = Sample, y = Value, fill = Group)) +
+    ggplot2::geom_bar(stat = "identity", color = "white", width = 0.7) +
+    ggplot2::facet_wrap(~ Metric, scales = "free_y", ncol = 1) +
+    ggplot2::scale_fill_manual(values = colors) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Cysteine Peptide Ratio & Alkylation Efficiency",
+                  x = NULL, y = "%") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 7)
+    )
+
+  save_plot_and_data(p, plot_df, project_name, "QC_Cys_Alkylation",
+                     output_dir = output_dir, width = 10, height = 7)
+  p
+}
+
+
+# ==============================================================================
+# 10. QC Panel — all-in-one
+# ==============================================================================
+
+#' Generate QC evaluation panel (all QC plots)
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame (NULL = overall)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return List of generated ggplot objects (invisible)
+#' @export
+plot_qc_panel <- function(ms_data, group_info = NULL,
+                          output_dir = "output",
+                          project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  message(">>> Generating QC evaluation plots...")
+  plots <- list()
+  .try <- function(name, expr) {
+    tryCatch(expr, error = function(e) {
+      message(paste("  !", name, "failed:", e$message)); NULL
+    })
+  }
+
+  plots$peptide_length <- .try("Peptide length",
+    plot_qc_peptide_length(ms_data, group_info, output_dir, project_name))
+
+  plots$charge <- .try("Charge distribution",
+    plot_qc_charge_distribution(ms_data, group_info, output_dir, project_name))
+
+  plots$missed_cleavage <- .try("Missed cleavage",
+    plot_qc_missed_cleavage(ms_data, group_info, output_dir, project_name))
+
+  plots$modification <- .try("Modification",
+    plot_qc_modification(ms_data, output_dir = output_dir,
+                         project_name = project_name))
+
+  plots$gravy <- .try("GRAVY",
+    plot_qc_gravy(ms_data, group_info, output_dir, project_name))
+
+  plots$pi <- .try("pI",
+    plot_qc_pi(ms_data, group_info, output_dir, project_name))
+
+  plots$mz <- .try("M/Z",
+    plot_qc_mz(ms_data, group_info, output_dir, project_name))
+
+  plots$cumulative <- .try("Cumulative intensity",
+    plot_qc_cumulative_intensity(ms_data, group_info, output_dir, project_name))
+
+  plots$cys_alk <- .try("Cys/Alkylation",
+    plot_qc_cys_alkylation(ms_data, group_info, output_dir, project_name))
+
+  n_ok <- sum(!sapply(plots, is.null))
+  message(sprintf(">>> QC panel complete: %d/%d plots generated.", n_ok, 9))
+  invisible(plots)
+}
+
+
+# ==============================================================================
+# Internal helpers
+# ==============================================================================
+
+#' Find a column by trying multiple candidate names
+#' @keywords internal
+.find_column <- function(df, candidates) {
+  cols <- colnames(df)
+  for (cand in candidates) {
+    if (cand %in% cols) return(cand)
+    # Case-insensitive fallback
+    idx <- which(tolower(cols) == tolower(cand))
+    if (length(idx) > 0) return(cols[idx[1]])
+  }
+  NULL
+}

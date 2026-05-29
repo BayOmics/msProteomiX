@@ -39,3 +39,4 @@ Thumbs.db
 # Runtime artifacts in inst/scripts
 inst/scripts/wkdir/
 inst/scripts/output/
+Rplots.pdf

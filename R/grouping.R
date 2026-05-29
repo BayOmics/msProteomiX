@@ -38,6 +38,18 @@ interactive_grouping <- function(sample_names, group_file = NULL, context = "Ana
       d_samps <- trimws(sample_names)
       common <- intersect(d_samps, f_samps)
 
+      # --- Spectronaut 适配: group_info 可能用列名(含后缀), parser 去掉了后缀 ---
+      if (length(common) == 0 && any(grepl("\\.PG\\.", f_samps))) {
+        f_samps_clean <- sub("\\.d\\.PG\\.(Quantity|Log2Quantity)$", "", f_samps)
+        f_samps_clean <- sub("\\.d$", "", f_samps_clean)
+        common <- intersect(d_samps, f_samps_clean)
+        if (length(common) > 0) {
+          # 更新 old_groups 的 sample_name 为去后缀版
+          old_groups$sample_name <- f_samps_clean
+          f_samps <- f_samps_clean
+        }
+      }
+
       if (length(common) > 0) {
         cat("\n")
         message("==========================================================")

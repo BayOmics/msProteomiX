@@ -86,8 +86,17 @@ detect_engine <- function(path) {
 
     # Spectronaut: 目录中含 _Report.tsv 或 PG. 前缀的 TSV
     sn_candidates <- files[grepl("_Report\\.(tsv|csv)$", files, ignore.case = TRUE)]
+    sn_candidates <- sn_candidates[!grepl("Precise_Report", sn_candidates, ignore.case = TRUE)]
     if (length(sn_candidates) > 0) {
       full_path <- file.path(path, sn_candidates[1])
+      if (.detect_spectronaut_header(full_path)) return("spectronaut")
+    }
+
+    # Spectronaut fallback: check any Report*.csv by header (catches "Report.csv")
+    sn_report <- files[grepl("^Report\\.(tsv|csv)$", basename(files), ignore.case = TRUE)]
+    sn_report <- sn_report[!grepl("Precise_Report", sn_report, ignore.case = TRUE)]
+    if (length(sn_report) > 0) {
+      full_path <- file.path(path, sn_report[1])
       if (.detect_spectronaut_header(full_path)) return("spectronaut")
     }
 

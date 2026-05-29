@@ -25,5 +25,14 @@ utils::globalVariables(c(
   # diff_analysis.R
   "diff",
   # grouping.R / general
-  "user_group", "sample_name"
+  "user_group", "sample_name",
+  # visualization_qc.R
+  "peptide_length", "charge", "mod_type", "mod_count",
+  "Freq", "pct", "missed_cleavages",
+  "GRAVY", "pI", "MZ", "CumulativeProp", "Rank",
+  "Metric", "Value", "MC",
+  # network.R
+  "from", "to", "combined_score", "degree_val",
+  # enrichment.R (KEGG/Reactome)
+  "GeneRatio", "BgRatio"
 ))

@@ -110,6 +110,8 @@ run_diff_analysis <- function(ms_data, group_info,
 
   # 添加属性
   attr(df, "contrast") <- paste0(test_group, "_vs_", ref_group)
+  attr(df, "ref_group") <- ref_group
+  attr(df, "test_group") <- test_group
   attr(df, "method") <- method
   attr(df, "p_type") <- p_type
   attr(df, "p_cutoff") <- p_cutoff

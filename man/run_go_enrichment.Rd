@@ -13,7 +13,7 @@ run_go_enrichment(
 )
 }
 \arguments{
-\item{ms_data}{MsDataSet 对象 (需含 peptides 数据)}
+\item{ms_data}{MsDataSet 对象 (使用 protein_info 和 proteins 矩阵提取基因)}
 
 \item{group_info}{分组信息 data.frame}
 

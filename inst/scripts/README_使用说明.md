@@ -35,7 +35,7 @@ create_project(getwd())
 
 2. **运行脚本**：在 RStudio 中打开 `scripts/01_数据导入与分组.R` → 点击 Source → 按提示完成分组
 
-3. **后续分析**：打开 `scripts/02` ~ `09` 脚本，Source 运行（01 必须首先运行，02-09 顺序任意）
+3. **后续分析**：打开 `scripts/02` ~ `13` 脚本，Source 运行（01 必须首先运行，02-13 顺序任意）
 
 4. **查看结果**：`output/` 文件夹中包含 PDF 图表和 CSV 源数据
 
@@ -55,6 +55,10 @@ create_project(getwd())
 | `07_差异分析_火山图.R` | Limma / t-test 差异分析 + 火山图 |
 | `08_序列覆盖度.R` | 蛋白序列覆盖度分析（需要 FASTA） |
 | `09_GO富集分析.R` | GO 细胞组分富集气泡图 |
+| `10_QC方法评估.R` | 肽段长度/电荷/漏切/修饰 QC 图组 |
+| `11_KEGG_Reactome富集.R` | KEGG / Reactome 通路富集分析 |
+| `12_差异蛋白热图.R` | 差异蛋白聚类热图（pheatmap） |
+| `13_PPI蛋白互作网络.R` | PPI 蛋白互作网络（STRINGdb + igraph） |
 | `20_AP-MS_时序分析.R` | AP-MS 亲和纯化时序分析（Bait 归一化 + ANOVA + DotPlot） |
 
 ---

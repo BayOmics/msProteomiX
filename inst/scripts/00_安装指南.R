@@ -24,7 +24,8 @@ message("=== msProteomiX Installation ===\n")
 # --- 1. 安装 CRAN 包 ---
 cran_pkgs <- c(
   "devtools", "magrittr", "rlang", "dplyr", "stringr", "ggplot2", "ggrepel",
-  "reshape2", "scales", "tibble", "ggvenn", "UpSetR", "gridExtra"
+  "reshape2", "scales", "tibble", "ggvenn", "UpSetR", "gridExtra",
+  "pheatmap", "igraph"
 )
 
 message(">>> Installing CRAN packages...")
@@ -46,7 +47,8 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
 }
 
-bioc_pkgs <- c("limma", "Biostrings", "clusterProfiler", "org.Hs.eg.db")
+bioc_pkgs <- c("limma", "Biostrings", "clusterProfiler", "org.Hs.eg.db",
+               "DOSE", "ReactomePA", "STRINGdb")
 for (pkg in bioc_pkgs) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     message(paste("  Installing:", pkg))

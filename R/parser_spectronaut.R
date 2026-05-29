@@ -28,12 +28,14 @@ parse_spectronaut <- function(path) {
     # 在目录中搜索 Spectronaut 报告文件
     candidates <- list.files(path, pattern = "_Report\\.(tsv|csv)$",
                               full.names = TRUE, ignore.case = TRUE)
+    # 排除 Precise_Report (它是肽段级数据, 不是蛋白级报告)
+    candidates <- candidates[!grepl("Precise_Report", basename(candidates), ignore.case = TRUE)]
     if (length(candidates) == 0) {
       # 尝试搜索所有 tsv/csv 文件并通过表头检测
       all_files <- list.files(path, pattern = "\\.(tsv|csv)$",
                                full.names = TRUE, ignore.case = TRUE)
       # 排除 IdentificationsOverview 和 group_info 等辅助文件
-      all_files <- all_files[!grepl("(group_info|IdentificationsOverview)",
+      all_files <- all_files[!grepl("(group_info|IdentificationsOverview|Precise_Report|Overview)",
                                       basename(all_files), ignore.case = TRUE)]
       for (f in all_files) {
         if (.detect_spectronaut_header(f)) { report_file <- f; break }
@@ -48,6 +50,8 @@ parse_spectronaut <- function(path) {
       for (sd in subdirs) {
         sub_candidates <- list.files(sd, pattern = "_Report\\.(tsv|csv)$",
                                       full.names = TRUE, ignore.case = TRUE)
+        sub_candidates <- sub_candidates[!grepl("Precise_Report", basename(sub_candidates),
+                                                  ignore.case = TRUE)]
         if (length(sub_candidates) > 0) { report_file <- sub_candidates[1]; break }
       }
     }
@@ -146,10 +150,13 @@ parse_spectronaut <- function(path) {
   # 构建标签名 (用于火山图标注)
   protein_info$Label_Name <- .build_sn_label_name(df, raw_cols)
 
+  # --- 可选: 解析 Precise_Report.csv (肽段/前体水平数据, 用于 QC) ---
+  psm_df <- .parse_sn_precise_report(report_file)
+
   new_MsDataSet(
     proteins     = proteins,
     peptides     = data.frame(),
-    psms         = data.frame(),
+    psms         = psm_df,
     ions         = data.frame(),
     sample_names = sample_names,
     protein_info = protein_info,
@@ -240,4 +247,113 @@ parse_spectronaut <- function(path) {
 
 
 # ==============================================================================
+# Precise_Report 解析 (可选)
+# ==============================================================================
 
+#' 搜索 Precise_Report.csv 文件
+#' @keywords internal
+.sn_find_precise_report <- function(report_file) {
+  report_dir <- dirname(report_file)
+  candidates <- list.files(report_dir, pattern = "Precise_Report\\.(csv|tsv)$",
+                             full.names = TRUE, ignore.case = TRUE)
+  if (length(candidates) > 0) return(candidates[1])
+  NULL
+}
+
+
+#' 解析 Spectronaut Precise_Report (肽段/前体水平, 可选)
+#'
+#' 读取 Precise_Report.csv 并标准化列名，用于 QC 函数。
+#' 只保留需要的 8 列以节省内存。
+#'
+#' @param report_file Report.csv 的路径（用于定位同目录的 Precise_Report）
+#' @return data.frame（标准化列名）或空 data.frame
+#' @keywords internal
+.parse_sn_precise_report <- function(report_file) {
+  precise_file <- .sn_find_precise_report(report_file)
+
+  if (is.null(precise_file)) {
+    message("  >>> Precise_Report not found. PSM-level QC plots will be skipped.")
+    return(data.frame())
+  }
+
+  message(sprintf(">>> Reading Precise_Report: %s", basename(precise_file)))
+
+  # 先读取表头确定可用列
+  header <- readLines(precise_file, n = 1, warn = FALSE)
+  sep <- if (grepl("\t", header)) "\t" else ","
+  all_cols <- unlist(strsplit(header, sep))
+
+  # 定义需要的列 (Spectronaut → 标准名)
+  col_map <- c(
+    "PEP.StrippedSequence"       = "Peptide",
+    "EG.ModifiedSequence"        = "Modified Peptide",
+    "PEP.NrOfMissedCleavages"    = "Number of Missed Cleavages",
+    "FG.Charge"                  = "Charge",
+    "FG.PrecMz"                  = "Calibrated Observed M/Z",
+    "FG.PrecMzCalibrated"        = "Calibrated Observed M/Z",
+    "FG.Quantity"                = "Intensity",
+    "R.Label"                    = "Spectrum File",
+    "R.FileName"                 = "Run",
+    "PG.ProteinAccessions"       = "Protein"
+  )
+
+  # 找到实际存在的列
+  avail <- intersect(names(col_map), all_cols)
+  if (length(avail) == 0) {
+    message("  >>> Precise_Report columns not recognized. Skipping.")
+    return(data.frame())
+  }
+
+  # 构建 colClasses: 只读需要的列, 其余设为 NULL
+  col_classes <- rep("NULL", length(all_cols))
+  names(col_classes) <- all_cols
+  for (cn in avail) {
+    col_classes[cn] <- NA  # NA = auto detect type
+  }
+
+  # 读取数据 (只加载需要的列)
+  psm_df <- tryCatch({
+    read.csv(precise_file, sep = sep, stringsAsFactors = FALSE,
+             check.names = FALSE, colClasses = col_classes, quote = "\"")
+  }, error = function(e) {
+    message("  >>> Failed to read Precise_Report: ", e$message)
+    return(data.frame())
+  })
+
+  if (nrow(psm_df) == 0) return(data.frame())
+
+  # 标准化列名
+  rename_map <- col_map[colnames(psm_df)]
+  rename_map <- rename_map[!is.na(rename_map)]
+
+  # 处理重复目标名 (FG.PrecMz 和 FG.PrecMzCalibrated 都映射到同一个名字)
+  # 优先使用 FG.PrecMzCalibrated
+  if ("FG.PrecMzCalibrated" %in% colnames(psm_df) && "FG.PrecMz" %in% colnames(psm_df)) {
+    psm_df$FG.PrecMz <- NULL
+    rename_map <- rename_map[names(rename_map) != "FG.PrecMz"]
+  }
+
+  for (old_name in names(rename_map)) {
+    new_name <- rename_map[[old_name]]
+    idx <- which(colnames(psm_df) == old_name)
+    if (length(idx) == 1) colnames(psm_df)[idx] <- new_name
+  }
+
+  # NaN → NA
+  for (j in seq_along(psm_df)) {
+    if (is.numeric(psm_df[[j]])) {
+      psm_df[[j]][is.nan(psm_df[[j]])] <- NA
+    }
+  }
+
+  n_rows <- nrow(psm_df)
+  n_files <- if ("Spectrum File" %in% colnames(psm_df)) {
+    length(unique(psm_df[["Spectrum File"]]))
+  } else {
+    NA_integer_
+  }
+  message(sprintf("  >>> Loaded %d precursor records from %d runs", n_rows, n_files))
+
+  psm_df
+}

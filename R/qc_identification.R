@@ -144,3 +144,73 @@ calc_alk_efficiency <- function(psm_df) {
   alk_count <- sum(grepl("C", cys_psm[[mod_col]]), na.rm = TRUE)
   round((alk_count / nrow(cys_psm)) * 100, digits = 2)
 }
+
+
+#' Calculate peptide isoelectric point (pI)
+#'
+#' Bjellqvist scale bisection algorithm.
+#'
+#' @param seqs Character vector of peptide sequences
+#' @return Numeric vector of pI values
+#' @export
+calc_pI_seq <- function(seqs) {
+  .pI_one <- function(seq) {
+    if (is.na(seq) || seq == "") return(NA_real_)
+    seq <- toupper(gsub("[^A-Z]", "", seq))
+    aa <- unlist(strsplit(seq, ""))
+
+    pKa <- c(N_term = 9.6, K = 10.0, R = 12.0, H = 5.98,
+             D = 4.05, E = 4.45, C = 9.0, Y = 10.0, C_term = 2.36)
+
+    cnts <- table(aa)
+    get_cnt <- function(x) { v <- as.integer(cnts[x]); ifelse(is.na(v), 0L, v) }
+    nK <- get_cnt("K"); nR <- get_cnt("R"); nH <- get_cnt("H")
+    nD <- get_cnt("D"); nE <- get_cnt("E"); nC <- get_cnt("C"); nY <- get_cnt("Y")
+
+    charge <- function(pH) {
+      pos <- (10^pKa["N_term"] / (10^pKa["N_term"] + 10^pH)) +
+        (nK * 10^pKa["K"] / (10^pKa["K"] + 10^pH)) +
+        (nR * 10^pKa["R"] / (10^pKa["R"] + 10^pH)) +
+        (nH * 10^pKa["H"] / (10^pKa["H"] + 10^pH))
+      neg <- (10^pH / (10^pKa["C_term"] + 10^pH)) +
+        (nD * 10^pH / (10^pKa["D"] + 10^pH)) +
+        (nE * 10^pH / (10^pKa["E"] + 10^pH)) +
+        (nC * 10^pH / (10^pKa["C"] + 10^pH)) +
+        (nY * 10^pH / (10^pKa["Y"] + 10^pH))
+      pos - neg
+    }
+
+    lo <- 0; hi <- 14
+    for (i in 1:15) {
+      mid <- (lo + hi) / 2
+      if (charge(mid) > 0) lo <- mid else hi <- mid
+    }
+    (lo + hi) / 2
+  }
+  sapply(seqs, .pI_one, USE.NAMES = FALSE)
+}
+
+
+#' Calculate GRAVY hydrophobicity score
+#'
+#' Kyte-Doolittle hydropathy index average.
+#'
+#' @param seqs Character vector of peptide sequences
+#' @return Numeric vector of GRAVY scores
+#' @export
+calc_gravy <- function(seqs) {
+  hydropathy <- c(
+    A = 1.8, R = -4.5, N = -3.5, D = -3.5, C = 2.5,
+    Q = -3.5, E = -3.5, G = -0.4, H = -3.2, I = 4.5,
+    L = 3.8, K = -3.9, M = 1.9, F = 2.8, P = -1.6,
+    S = -0.8, T = -0.7, W = -0.9, Y = -1.3, V = 4.2
+  )
+  sapply(seqs, function(s) {
+    if (is.na(s) || s == "") return(NA_real_)
+    s_clean <- gsub("[^A-Z]", "", toupper(s))
+    aa <- unlist(strsplit(s_clean, ""))
+    scores <- hydropathy[aa]
+    if (length(scores) == 0 || all(is.na(scores))) return(NA_real_)
+    mean(scores, na.rm = TRUE)
+  }, USE.NAMES = FALSE)
+}

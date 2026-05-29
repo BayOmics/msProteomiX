@@ -5,5 +5,9 @@
 ^test_output$
 ^output$
 ^\.github$
+^\.agents$
 inst/scripts/wkdir
 inst/scripts/output
+^Rplots\.pdf$
+^CHANGELOG\.md$
+搜库软件输出结果demo

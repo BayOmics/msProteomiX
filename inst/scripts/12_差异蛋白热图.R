@@ -1,39 +1,35 @@
 # ╔══════════════════════════════════════════════════════════════╗
-# ║       msProteomiX — 步骤 9: GO 富集分析                     ║
+# ║       msProteomiX — 步骤 12: 差异蛋白聚类热图               ║
 # ╠══════════════════════════════════════════════════════════════╣
 # ║                                                              ║
-# ║  【前置条件】已运行 01_数据导入与分组.R                     ║
+# ║  【前置条件】已运行 01 和 07 (需要差异分析结果)             ║
 # ║                                                              ║
 # ║  【可调参数】                                                ║
-# ║   • species_db — 物种注释数据库                             ║
-# ║     "org.Hs.eg.db" (人), "org.Mm.eg.db" (鼠)              ║
-# ║   • go_category — GO 分类                                   ║
-# ║     "CC" (细胞组分), "BP" (生物过程), "MF" (分子功能)      ║
+# ║   • top_n — 显示 Top N 差异蛋白 (默认 50)                  ║
+# ║   • scale — 行标准化方法: "row" (Z-score) 或 "none"        ║
 # ║                                                              ║
-# ║  【输出】output/GO_Enrichment.pdf (气泡图) + .csv          ║
-# ║         output/GO_Enrichment_Bar.pdf (柱状图)              ║
+# ║  【输出】output/Heatmap_<对比组名>.pdf + .csv               ║
 # ║                                                              ║
 # ╚══════════════════════════════════════════════════════════════╝
 
 library(msProteomiX)
 setup_workdir()
-check_prerequisites("01")
+check_prerequisites("07")
 
 # ━━━━━━━━━━━━━━━━━ 用户设置 (可修改) ━━━━━━━━━━━━━━━━━
-species_db  <- "org.Hs.eg.db"   # 人: "org.Hs.eg.db", 鼠: "org.Mm.eg.db"
-go_category <- "CC"              # "CC", "BP", "MF"
-top_n       <- 10                # 每组保留前N个结果
+top_n  <- 50       # 显示 Top N 差异蛋白
+scale  <- "row"    # "row" = Z-score 行标准化, "none" = 不标准化
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-go_result <- run_go_enrichment(
-  ms_data    = .msProteomiX_env$ms_data,
-  group_info = .msProteomiX_env$group_info,
-  org_db     = species_db,
-  ont        = go_category,
-  top_n      = top_n
+# --- 差异蛋白聚类热图 ---
+plot_diff_heatmap(
+  diff_result  = result,
+  ms_data      = .msProteomiX_env$ms_data,
+  group_info   = .msProteomiX_env$group_info,
+  top_n        = top_n,
+  scale        = scale,
+  project_name = "Project"
 )
 
-plot_go_bubble(go_result, project_name = "Project")
-plot_go_bar(go_result, project_name = "Project")
-
 message("\n  Done! Check the output/ folder.")
+message("  To analyze another comparison, run 07 first then re-Source this script.")

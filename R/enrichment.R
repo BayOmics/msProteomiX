@@ -4,7 +4,7 @@
 
 #' 运行 GO 富集分析 (Cellular Component)
 #'
-#' @param ms_data MsDataSet 对象 (需含 peptides 数据)
+#' @param ms_data MsDataSet 对象 (使用 protein_info 和 proteins 矩阵提取基因)
 #' @param group_info 分组信息 data.frame
 #' @param org_db 物种注释包名 (默认 "org.Hs.eg.db" 人类)
 #' @param ont GO Ontology: "CC" (Cellular Component), "BP", "MF"
@@ -23,36 +23,17 @@ run_go_enrichment <- function(ms_data, group_info,
     stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))
   }
 
-  pep_df <- ms_data$peptides
-  if (nrow(pep_df) == 0) stop("No peptide data available.")
+  # 使用 protein_info + protein matrix 提取各组基因 (兼容所有引擎)
+  gene_list_by_group <- .extract_group_genes(ms_data, group_info)
+  if (length(gene_list_by_group) == 0) {
+    message("  No gene data available for GO enrichment.")
+    return(data.frame())
+  }
 
-  gene_col <- grep("Mapped Gene|Gene Name|Gene", colnames(pep_df),
-                    ignore.case = TRUE, value = TRUE)[1]
-  if (is.na(gene_col)) stop("Cannot find Gene column in peptide data.")
-
-  pep_raw_cols <- colnames(pep_df)
-  unique_groups <- unique(group_info$user_group)
   gocc_results <- list()
-
-  for (grp in unique_groups) {
-    message(paste("  Analyzing group:", grp))
-    grp_samples <- group_info$sample_name[group_info$user_group == grp]
-    grp_cols <- c()
-    for (s in grp_samples) {
-      s_safe <- escape_regex(s)
-      pat <- paste0("^", s_safe, ".*(Intensity|Spectral Count)$")
-      hits <- grep(pat, pep_raw_cols, ignore.case = TRUE, value = TRUE)
-      hits <- hits[!grepl("(Unique|Total)", hits, ignore.case = TRUE)]
-      grp_cols <- c(grp_cols, hits)
-    }
-    grp_cols <- unique(grp_cols)
-    if (length(grp_cols) == 0) next
-
-    is_detected <- rowSums(pep_df[, grp_cols, drop = FALSE] > 0, na.rm = TRUE) > 0
-    detected_genes_str <- pep_df[[gene_col]][is_detected]
-    detected_genes <- unlist(strsplit(as.character(detected_genes_str), "[;\\|,]"))
-    detected_genes <- unique(trimws(detected_genes))
-    detected_genes <- detected_genes[detected_genes != "" & !is.na(detected_genes)]
+  for (grp in names(gene_list_by_group)) {
+    message(paste("  GO enrichment for group:", grp))
+    detected_genes <- gene_list_by_group[[grp]]
 
     if (length(detected_genes) < 10) {
       message(paste("  Too few genes (<10) for group", grp, "- skipping."))
@@ -62,7 +43,7 @@ run_go_enrichment <- function(ms_data, group_info,
     ego <- tryCatch({
       clusterProfiler::enrichGO(
         gene          = detected_genes,
-        OrgDb         = get(org_db),
+        OrgDb         = loadNamespace(org_db)[[org_db]],
         keyType       = "SYMBOL",
         ont           = ont,
         pAdjustMethod = "BH",
@@ -129,5 +110,644 @@ plot_go_bubble <- function(go_df,
 
   save_plot_and_data(p, go_df, project_name, "GO_Enrichment",
                      output_dir = output_dir, height = plot_height, width = 9)
+  p
+}
+
+
+#' Plot GO enrichment bar chart
+#'
+#' Horizontal bar chart with facet by group, complementary to plot_go_bubble().
+#'
+#' @param go_df run_go_enrichment() result data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object
+#' @export
+plot_go_bar <- function(go_df,
+                        output_dir = "output",
+                        project_name = "Project") {
+  ensure_output_dir(output_dir)
+
+  if (is.null(go_df) || nrow(go_df) == 0) {
+    message("  No GO data to plot.")
+    return(invisible(NULL))
+  }
+
+  go_df$Description <- stringr::str_trunc(go_df$Description, 40)
+  go_df$Description <- factor(go_df$Description,
+                              levels = unique(go_df$Description[order(go_df$Count)]))
+
+  p <- ggplot2::ggplot(go_df,
+                        ggplot2::aes(x = stats::reorder(Description, Count),
+                                    y = Count, fill = p.adjust)) +
+    ggplot2::geom_col() +
+    ggplot2::coord_flip() +
+    ggplot2::scale_fill_gradient(low = "red", high = "blue") +
+    ggplot2::facet_wrap(~ Group, scales = "free_y") +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "GO Cellular Component Enrichment",
+                  x = NULL, y = "Gene Count",
+                  fill = "p.adjust") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      strip.background = ggplot2::element_rect(fill = "grey90"),
+      strip.text = ggplot2::element_text(face = "bold", size = 10),
+      axis.text.y = ggplot2::element_text(size = 9)
+    )
+
+  n_groups <- length(unique(go_df$Group))
+  plot_height <- 6 + n_groups * 2
+
+  save_plot_and_data(p, go_df, project_name, "GO_Enrichment_Bar",
+                     output_dir = output_dir, height = plot_height, width = 8)
+  p
+}
+
+
+# ==============================================================================
+# KEGG Pathway Enrichment
+# ==============================================================================
+
+#' Run KEGG pathway enrichment analysis
+#'
+#' @param ms_data MsDataSet object (used when diff_result is NULL)
+#' @param group_info Group info data.frame (used when diff_result is NULL)
+#' @param diff_result Optional. Output from run_diff_analysis(). If provided,
+#'   enrichment is performed on differentially expressed proteins only.
+#' @param org_db Annotation package name (default "org.Hs.eg.db")
+#' @param organism KEGG organism code (default "hsa" for human)
+#' @param top_n Number of top results to keep per group/set
+#' @return data.frame with enrichment results
+#' @export
+run_kegg_enrichment <- function(ms_data = NULL, group_info = NULL,
+                                diff_result = NULL,
+                                org_db = "org.Hs.eg.db",
+                                organism = "hsa",
+                                top_n = 15) {
+  if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
+    stop("Please install clusterProfiler: BiocManager::install('clusterProfiler')")
+  }
+  if (!requireNamespace(org_db, quietly = TRUE)) {
+    stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))
+  }
+
+  if (!is.null(diff_result)) {
+    # --- Mode 1: Enrichment on differentially expressed proteins ---
+    gene_list <- .extract_diff_genes(diff_result)
+    if (length(gene_list) < 5) {
+      message(">>> Too few differentially expressed genes (<5) for KEGG enrichment.")
+      return(data.frame())
+    }
+
+    entrez_ids <- .symbol_to_entrez(gene_list, org_db)
+    if (length(entrez_ids) < 5) {
+      message(">>> Too few mapped Entrez IDs (<5). Check gene symbols and org_db.")
+      return(data.frame())
+    }
+
+    ekegg <- tryCatch({
+      clusterProfiler::enrichKEGG(
+        gene         = entrez_ids,
+        organism     = organism,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.05,
+        qvalueCutoff = 0.2
+      )
+    }, error = function(e) {
+      message(">>> KEGG enrichment failed: ", e$message)
+      NULL
+    })
+
+    if (is.null(ekegg) || nrow(ekegg) == 0) {
+      message(">>> No significant KEGG enrichment results.")
+      return(data.frame())
+    }
+
+    result <- ekegg@result %>%
+      dplyr::arrange(p.adjust) %>%
+      utils::head(top_n)
+    result$Group <- attr(diff_result, "contrast") %||% "DiffExpr"
+    return(result)
+
+  } else {
+    # --- Mode 2: Enrichment by group (same pattern as run_go_enrichment) ---
+    if (is.null(ms_data) || is.null(group_info)) {
+      stop("Provide either diff_result, or both ms_data and group_info.")
+    }
+    stopifnot(inherits(ms_data, "MsDataSet"))
+
+    gene_list_by_group <- .extract_group_genes(ms_data, group_info)
+    kegg_results <- list()
+
+    for (grp in names(gene_list_by_group)) {
+      genes <- gene_list_by_group[[grp]]
+      if (length(genes) < 10) {
+        message(paste("  Too few genes (<10) for group", grp, "- skipping."))
+        next
+      }
+
+      entrez_ids <- .symbol_to_entrez(genes, org_db)
+      if (length(entrez_ids) < 5) next
+
+      message(paste("  KEGG enrichment for group:", grp))
+      ekegg <- tryCatch({
+        clusterProfiler::enrichKEGG(
+          gene         = entrez_ids,
+          organism     = organism,
+          pAdjustMethod = "BH",
+          pvalueCutoff = 0.05,
+          qvalueCutoff = 0.2
+        )
+      }, error = function(e) NULL)
+
+      if (!is.null(ekegg) && nrow(ekegg) > 0) {
+        top_res <- ekegg@result %>%
+          dplyr::arrange(p.adjust) %>%
+          utils::head(top_n)
+        top_res$Group <- grp
+        kegg_results[[grp]] <- top_res
+      }
+    }
+
+    if (length(kegg_results) == 0) {
+      message(">>> No significant KEGG enrichment results.")
+      return(data.frame())
+    }
+    do.call(rbind, kegg_results)
+  }
+}
+
+
+#' Plot KEGG enrichment bar chart
+#'
+#' @param kegg_df run_kegg_enrichment() result data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object
+#' @export
+plot_kegg_bar <- function(kegg_df,
+                          output_dir = "output",
+                          project_name = "Project") {
+  ensure_output_dir(output_dir)
+
+  if (is.null(kegg_df) || nrow(kegg_df) == 0) {
+    message("  No KEGG data to plot.")
+    return(invisible(NULL))
+  }
+
+  kegg_df$Description <- stringr::str_wrap(kegg_df$Description, width = 50)
+  kegg_df$Description <- factor(kegg_df$Description,
+                                levels = unique(kegg_df$Description[order(kegg_df$Count)]))
+
+  p <- ggplot2::ggplot(kegg_df, ggplot2::aes(x = Count, y = Description)) +
+    ggplot2::geom_point(ggplot2::aes(size = Count, color = p.adjust)) +
+    ggplot2::scale_color_gradient(low = "#E64B35", high = "#4DBBD5") +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "KEGG Pathway Enrichment",
+                  x = "Gene Count", y = NULL,
+                  color = "p.adjust", size = "Count") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      strip.background = ggplot2::element_rect(fill = "grey90"),
+      strip.text = ggplot2::element_text(face = "bold", size = 10),
+      axis.text.y = ggplot2::element_text(size = 9)
+    )
+
+  # Add facet if multiple groups
+  if (length(unique(kegg_df$Group)) > 1) {
+    p <- p + ggplot2::facet_grid(Group ~ ., scales = "free_y", space = "free_y")
+  }
+
+  plot_height <- 2 + (nrow(kegg_df) * 0.35)
+  if (plot_height < 5) plot_height <- 5
+
+  save_plot_and_data(p, kegg_df, project_name, "KEGG_Enrichment",
+                     output_dir = output_dir, height = plot_height, width = 10)
+  p
+}
+
+
+# ==============================================================================
+# Reactome Pathway Enrichment
+# ==============================================================================
+
+#' Run Reactome pathway enrichment analysis
+#'
+#' @param ms_data MsDataSet object (used when diff_result is NULL)
+#' @param group_info Group info data.frame (used when diff_result is NULL)
+#' @param diff_result Optional. Output from run_diff_analysis().
+#' @param org_db Annotation package name (default "org.Hs.eg.db")
+#' @param organism Reactome organism (default "human")
+#' @param top_n Number of top results to keep
+#' @return data.frame with enrichment results
+#' @export
+run_reactome_enrichment <- function(ms_data = NULL, group_info = NULL,
+                                    diff_result = NULL,
+                                    org_db = "org.Hs.eg.db",
+                                    organism = "human",
+                                    top_n = 20) {
+  if (!requireNamespace("ReactomePA", quietly = TRUE)) {
+    stop("Please install ReactomePA: BiocManager::install('ReactomePA')")
+  }
+  if (!requireNamespace(org_db, quietly = TRUE)) {
+    stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))
+  }
+
+  if (!is.null(diff_result)) {
+    # --- Mode 1: Differentially expressed proteins ---
+    gene_list <- .extract_diff_genes(diff_result)
+    if (length(gene_list) < 5) {
+      message(">>> Too few DE genes (<5) for Reactome enrichment.")
+      return(data.frame())
+    }
+
+    entrez_ids <- .symbol_to_entrez(gene_list, org_db)
+    if (length(entrez_ids) < 5) {
+      message(">>> Too few mapped Entrez IDs (<5).")
+      return(data.frame())
+    }
+
+    epa <- tryCatch({
+      ReactomePA::enrichPathway(
+        gene         = entrez_ids,
+        organism     = organism,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.05,
+        qvalueCutoff = 0.2
+      )
+    }, error = function(e) {
+      message(">>> Reactome enrichment failed: ", e$message)
+      NULL
+    })
+
+    if (is.null(epa) || nrow(epa) == 0) {
+      message(">>> No significant Reactome enrichment results.")
+      return(data.frame())
+    }
+
+    result <- epa@result %>%
+      dplyr::arrange(p.adjust) %>%
+      utils::head(top_n)
+    result$Group <- attr(diff_result, "contrast") %||% "DiffExpr"
+    return(result)
+
+  } else {
+    # --- Mode 2: By group ---
+    if (is.null(ms_data) || is.null(group_info)) {
+      stop("Provide either diff_result, or both ms_data and group_info.")
+    }
+    stopifnot(inherits(ms_data, "MsDataSet"))
+
+    gene_list_by_group <- .extract_group_genes(ms_data, group_info)
+    react_results <- list()
+
+    for (grp in names(gene_list_by_group)) {
+      genes <- gene_list_by_group[[grp]]
+      if (length(genes) < 10) {
+        message(paste("  Too few genes (<10) for group", grp, "- skipping."))
+        next
+      }
+
+      entrez_ids <- .symbol_to_entrez(genes, org_db)
+      if (length(entrez_ids) < 5) next
+
+      message(paste("  Reactome enrichment for group:", grp))
+      epa <- tryCatch({
+        ReactomePA::enrichPathway(
+          gene         = entrez_ids,
+          organism     = organism,
+          pAdjustMethod = "BH",
+          pvalueCutoff = 0.05,
+          qvalueCutoff = 0.2
+        )
+      }, error = function(e) NULL)
+
+      if (!is.null(epa) && nrow(epa) > 0) {
+        top_res <- epa@result %>%
+          dplyr::arrange(p.adjust) %>%
+          utils::head(top_n)
+        top_res$Group <- grp
+        react_results[[grp]] <- top_res
+      }
+    }
+
+    if (length(react_results) == 0) {
+      message(">>> No significant Reactome enrichment results.")
+      return(data.frame())
+    }
+    do.call(rbind, react_results)
+  }
+}
+
+
+#' Plot Reactome enrichment bar chart
+#'
+#' @param reactome_df run_reactome_enrichment() result data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object
+#' @export
+plot_reactome_bar <- function(reactome_df,
+                              output_dir = "output",
+                              project_name = "Project") {
+  ensure_output_dir(output_dir)
+
+  if (is.null(reactome_df) || nrow(reactome_df) == 0) {
+    message("  No Reactome data to plot.")
+    return(invisible(NULL))
+  }
+
+  reactome_df$Description <- stringr::str_wrap(reactome_df$Description, width = 55)
+  reactome_df$Description <- factor(reactome_df$Description,
+                                    levels = unique(reactome_df$Description[
+                                      order(reactome_df$Count)]))
+
+  p <- ggplot2::ggplot(reactome_df,
+                        ggplot2::aes(x = Count, y = Description)) +
+    ggplot2::geom_point(ggplot2::aes(size = Count, color = p.adjust)) +
+    ggplot2::scale_color_gradient(low = "#7E6148", high = "#B09C85") +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Reactome Pathway Enrichment",
+                  x = "Gene Count", y = NULL,
+                  color = "p.adjust", size = "Count") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      strip.background = ggplot2::element_rect(fill = "grey90"),
+      strip.text = ggplot2::element_text(face = "bold", size = 10),
+      axis.text.y = ggplot2::element_text(size = 9)
+    )
+
+  if (length(unique(reactome_df$Group)) > 1) {
+    p <- p + ggplot2::facet_grid(Group ~ ., scales = "free_y", space = "free_y")
+  }
+
+  plot_height <- 2 + (nrow(reactome_df) * 0.35)
+  if (plot_height < 5) plot_height <- 5
+
+  save_plot_and_data(p, reactome_df, project_name, "Reactome_Enrichment",
+                     output_dir = output_dir, height = plot_height, width = 11)
+  p
+}
+
+
+# ==============================================================================
+# Shared internal helpers for enrichment
+# ==============================================================================
+
+#' Extract gene symbols from differential analysis result
+#' @keywords internal
+.extract_diff_genes <- function(diff_result) {
+  # Get genes from UP and DOWN proteins
+  diff_df <- diff_result[diff_result$diff %in% c("UP", "DOWN"), ]
+  if (nrow(diff_df) == 0) return(character())
+
+  # Use Gene column for enrichment (Label_Name = UniProt entry name, not gene symbol)
+  gene_col <- if ("Gene" %in% colnames(diff_df)) "Gene"
+              else if ("Label_Name" %in% colnames(diff_df)) "Label_Name"
+              else NULL
+
+  if (is.null(gene_col)) return(character())
+
+  genes <- as.character(diff_df[[gene_col]])
+  genes <- unlist(strsplit(genes, "[;|,]"))
+  genes <- unique(trimws(genes))
+  genes[genes != "" & !is.na(genes)]
+}
+
+
+#' Extract gene symbols from MsDataSet by group
+#' @keywords internal
+.extract_group_genes <- function(ms_data, group_info) {
+  prot_mat <- ms_data$proteins
+  pinfo <- ms_data$protein_info
+
+  # Use Gene column for enrichment (Label_Name = UniProt entry name, not gene symbol)
+  gene_col <- if ("Gene" %in% colnames(pinfo)) "Gene"
+              else if ("Label_Name" %in% colnames(pinfo)) "Label_Name"
+              else NULL
+
+  if (is.null(gene_col)) {
+    message(">>> Cannot find gene column in protein_info.")
+    return(list())
+  }
+
+  unique_groups <- unique(group_info$user_group)
+  result <- list()
+
+  for (grp in unique_groups) {
+    grp_samples <- group_info$sample_name[group_info$user_group == grp]
+    grp_samples <- intersect(grp_samples, colnames(prot_mat))
+    if (length(grp_samples) == 0) next
+
+    is_detected <- rowSums(prot_mat[, grp_samples, drop = FALSE] > 0,
+                           na.rm = TRUE) > 0
+    detected_genes_str <- pinfo[[gene_col]][is_detected]
+    detected_genes <- unlist(strsplit(as.character(detected_genes_str),
+                                     "[;|,]"))
+    detected_genes <- unique(trimws(detected_genes))
+    detected_genes <- detected_genes[detected_genes != "" &
+                                     !is.na(detected_genes)]
+    result[[grp]] <- detected_genes
+  }
+  result
+}
+
+
+#' Convert gene symbols to Entrez IDs
+#' @keywords internal
+.symbol_to_entrez <- function(gene_symbols, org_db) {
+  if (!requireNamespace("clusterProfiler", quietly = TRUE)) return(character())
+
+  id_map <- tryCatch({
+    clusterProfiler::bitr(
+      gene_symbols,
+      fromType = "SYMBOL",
+      toType   = "ENTREZID",
+      OrgDb    = loadNamespace(org_db)[[org_db]]
+    )
+  }, error = function(e) {
+    message(">>> Gene ID conversion failed: ", e$message)
+    data.frame(SYMBOL = character(), ENTREZID = character())
+  })
+
+  if (nrow(id_map) == 0) return(character())
+  unique(id_map$ENTREZID)
+}
+
+
+# ==============================================================================
+# GSEA (Gene Set Enrichment Analysis)
+# ==============================================================================
+
+#' Run GSEA pre-ranked analysis using gseKEGG
+#'
+#' Uses all proteins' logFC from diff_result (not just significant ones)
+#' to perform gene set enrichment analysis.
+#'
+#' @param diff_result data.frame from run_diff_analysis()
+#' @param org_db Annotation database (default "org.Hs.eg.db")
+#' @param organism KEGG organism code (default "hsa")
+#' @param pvalue_cutoff P-value cutoff (default 0.05)
+#' @param min_gs_size Minimum gene set size (default 10)
+#' @param max_gs_size Maximum gene set size (default 500)
+#' @return gseaResult object or NULL
+#' @export
+run_gsea_analysis <- function(diff_result,
+                               org_db = "org.Hs.eg.db",
+                               organism = "hsa",
+                               pvalue_cutoff = 0.05,
+                               min_gs_size = 10,
+                               max_gs_size = 500) {
+  if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
+    stop("Please install clusterProfiler: BiocManager::install('clusterProfiler')")
+  }
+  if (!requireNamespace(org_db, quietly = TRUE)) {
+    stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))
+  }
+
+  # Extract gene symbols and logFC
+  gene_col <- if ("Gene" %in% colnames(diff_result)) "Gene"
+              else if ("Label_Name" %in% colnames(diff_result)) "Label_Name"
+              else NULL
+  if (is.null(gene_col)) {
+    message(">>> Cannot find Gene column in diff_result.")
+    return(NULL)
+  }
+
+  # Build ranked gene list: gene symbol -> logFC
+  gene_symbols <- as.character(diff_result[[gene_col]])
+  logfc_values <- diff_result$logFC
+
+  # Remove NA and empty
+  valid <- !is.na(gene_symbols) & gene_symbols != "" & !is.na(logfc_values)
+  gene_symbols <- gene_symbols[valid]
+  logfc_values <- logfc_values[valid]
+
+  # Handle multi-gene entries (split by ; and take first)
+  first_gene <- sub(";.*$", "", gene_symbols)
+
+  # Convert SYMBOL -> ENTREZID with logFC mapping
+  message(">>> Converting gene symbols to Entrez IDs...")
+  id_map <- tryCatch({
+    clusterProfiler::bitr(
+      unique(first_gene),
+      fromType = "SYMBOL",
+      toType   = "ENTREZID",
+      OrgDb    = loadNamespace(org_db)[[org_db]]
+    )
+  }, error = function(e) {
+    message(">>> Gene ID conversion failed: ", e$message)
+    return(NULL)
+  })
+
+  if (is.null(id_map) || nrow(id_map) == 0) {
+    message(">>> No genes could be mapped. GSEA aborted.")
+    return(NULL)
+  }
+
+  # Build named vector: ENTREZID -> logFC (descending)
+  gene_df <- data.frame(SYMBOL = first_gene, logFC = logfc_values,
+                         stringsAsFactors = FALSE)
+  merged <- merge(gene_df, id_map, by = "SYMBOL")
+
+  # For duplicate ENTREZID, take the one with largest |logFC|
+  merged <- merged[order(abs(merged$logFC), decreasing = TRUE), ]
+  merged <- merged[!duplicated(merged$ENTREZID), ]
+
+  gene_list <- merged$logFC
+  names(gene_list) <- merged$ENTREZID
+  gene_list <- sort(gene_list, decreasing = TRUE)
+
+  if (length(gene_list) < 15) {
+    message(sprintf(">>> Too few mapped genes (%d). GSEA requires more data.",
+                    length(gene_list)))
+    return(NULL)
+  }
+
+  message(sprintf(">>> Running gseKEGG with %d ranked genes...", length(gene_list)))
+
+  gsea_result <- tryCatch({
+    clusterProfiler::gseKEGG(
+      geneList      = gene_list,
+      organism      = organism,
+      minGSSize     = min_gs_size,
+      maxGSSize     = max_gs_size,
+      pvalueCutoff  = pvalue_cutoff,
+      pAdjustMethod = "BH",
+      verbose       = FALSE
+    )
+  }, error = function(e) {
+    message(">>> gseKEGG failed: ", e$message)
+    return(NULL)
+  })
+
+  if (is.null(gsea_result) || nrow(gsea_result) == 0) {
+    message(">>> No significant GSEA results found.")
+    return(gsea_result)
+  }
+
+  contrast <- attr(diff_result, "contrast")
+  if (!is.null(contrast)) attr(gsea_result, "contrast") <- contrast
+
+  n_up <- sum(gsea_result@result$NES > 0)
+  n_down <- sum(gsea_result@result$NES < 0)
+  message(sprintf(">>> GSEA complete: %d enriched (%d activated, %d suppressed)",
+                  nrow(gsea_result), n_up, n_down))
+  gsea_result
+}
+
+
+#' Plot GSEA results
+#'
+#' Generates a dot plot of GSEA results.
+#'
+#' @param gsea_result gseaResult object from run_gsea_analysis()
+#' @param top_n Number of top pathways to show (default 20)
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_gsea_result <- function(gsea_result,
+                              top_n = 20,
+                              output_dir = "output",
+                              project_name = "Project") {
+  if (is.null(gsea_result) || nrow(gsea_result) == 0) {
+    message(">>> No GSEA data to plot.")
+    return(invisible(NULL))
+  }
+  ensure_output_dir(output_dir)
+
+  res_df <- gsea_result@result
+  res_df <- res_df[order(res_df$p.adjust), ]
+  res_df <- utils::head(res_df, top_n)
+
+  # Dot plot: x = NES, y = pathway, size = setSize, color = p.adjust
+  res_df$Description <- factor(res_df$Description,
+                                levels = rev(res_df$Description))
+
+  p <- ggplot2::ggplot(res_df, ggplot2::aes(
+    x = NES, y = Description, size = setSize, color = p.adjust
+  )) +
+    ggplot2::geom_point() +
+    ggplot2::scale_color_gradient(low = "#E74C3C", high = "#3498DB",
+                                  name = "p.adjust") +
+    ggplot2::scale_size_continuous(range = c(3, 8), name = "Gene Set Size") +
+    ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::labs(
+      title = "GSEA - KEGG Pathways",
+      x = "Normalized Enrichment Score (NES)",
+      y = NULL
+    ) +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text.y = ggplot2::element_text(size = 10)
+    )
+
+  contrast <- attr(gsea_result, "contrast")
+  suffix <- if (!is.null(contrast)) paste0("GSEA_KEGG_", contrast) else "GSEA_KEGG"
+
+  save_plot_and_data(p, res_df, project_name, suffix,
+                     output_dir = output_dir, width = 12, height = 8)
   p
 }

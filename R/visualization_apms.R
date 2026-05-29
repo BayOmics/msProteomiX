@@ -138,7 +138,7 @@ plot_apms_dotplot <- function(rel_abundance, sig_proteins = NULL,
       name = "Peak Group"
     ) +
     ggplot2::labs(
-      title = paste0("AP-MS Dot Plot — ", project_name),
+      title = paste0("AP-MS Dot Plot - ", project_name),
       x = NULL, y = NULL
     ) +
     ggplot2::theme_bw(base_size = 12) +
@@ -228,7 +228,7 @@ plot_apms_heatmap <- function(rel_abundance, sig_proteins = NULL,
     cluster_cols = FALSE,
     color = grDevices::colorRampPalette(c("#F0F4FF", "#3B82F6", "#1E3A8A"))(100),
     border_color = NA,
-    main = paste0("AP-MS Heatmap — ", project_name),
+    main = paste0("AP-MS Heatmap - ", project_name),
     fontsize_row = max(6, 12 - n_proteins * 0.05),
     fontsize_col = 12,
     show_rownames = n_proteins <= 100
@@ -294,7 +294,7 @@ plot_mfuzz <- function(mfuzz_result, project_name = "APMS") {
     ggplot2::geom_point(size = 3, color = "#2563EB") +
     ggplot2::facet_wrap(~ ClusterLabel, scales = "free_y") +
     ggplot2::labs(
-      title = paste0("Mfuzz Clusters — ", project_name),
+      title = paste0("Mfuzz Clusters - ", project_name),
       x = NULL, y = "Z-score"
     ) +
     ggplot2::theme_bw(base_size = 12) +

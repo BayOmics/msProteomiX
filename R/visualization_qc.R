@@ -721,12 +721,22 @@ plot_qc_mass_error <- function(ms_data, group_info = NULL,
   # Compute median BEFORE filtering outliers (for annotation)
   med_ppm <- stats::median(psm_df$ppm, na.rm = TRUE)
 
-  # Filter to ±20 ppm for plotting (so histogram bins are meaningful)
+  # Filter to +/-20 ppm for plotting (so histogram bins are meaningful)
   n_total <- nrow(psm_df)
   psm_df <- psm_df[abs(psm_df$ppm) <= 20, ]
   n_kept <- nrow(psm_df)
   pct_kept <- round(n_kept / n_total * 100, 1)
   if (nrow(psm_df) == 0) return(invisible(NULL))
+
+  # Per-sample median for facet-specific annotations
+  sample_stats <- do.call(rbind, lapply(split(psm_df, psm_df$qc_sample), function(d) {
+    data.frame(
+      qc_sample = d$qc_sample[1],
+      med = stats::median(d$ppm, na.rm = TRUE),
+      stringsAsFactors = FALSE
+    )
+  }))
+  sample_stats$label <- sprintf("Median = %.2f ppm", sample_stats$med)
 
   n_groups <- length(unique(psm_df$qc_group))
 
@@ -734,19 +744,24 @@ plot_qc_mass_error <- function(ms_data, group_info = NULL,
     ggplot2::geom_histogram(bins = 80, alpha = 0.7, position = "identity",
                             color = "white", linewidth = 0.1) +
     ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "grey30") +
-    ggplot2::geom_vline(xintercept = med_ppm, linetype = "solid",
-                        color = "#E64B35", linewidth = 0.8) +
-    ggplot2::annotate("text", x = med_ppm, y = Inf, vjust = 2, hjust = -0.1,
-                      label = sprintf("Median = %.2f ppm\n(%.1f%% shown)",
-                                      med_ppm, pct_kept),
-                      color = "#E64B35", fontface = "bold", size = 3) +
+    ggplot2::geom_vline(data = sample_stats,
+                        ggplot2::aes(xintercept = med),
+                        linetype = "solid", color = "#E64B35", linewidth = 0.8) +
+    ggplot2::geom_text(data = sample_stats,
+                       ggplot2::aes(x = med, y = Inf, label = label),
+                       vjust = 2, hjust = -0.1,
+                       color = "#E64B35", fontface = "bold", size = 2.5,
+                       inherit.aes = FALSE) +
     ggplot2::facet_wrap(~ qc_sample, scales = "free_y") +
     ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
     ggplot2::theme_bw() +
     ggplot2::labs(title = "Mass Error Distribution",
+                  subtitle = sprintf("Overall median = %.2f ppm (%.1f%% of PSMs within +/-20 ppm)",
+                                     med_ppm, pct_kept),
                   x = "Mass Error (ppm)", y = "PSM Count", fill = "Group") +
     ggplot2::theme(
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 9, color = "grey40"),
       axis.text.x = ggplot2::element_text(size = 7),
       strip.text = ggplot2::element_text(size = 7)
     )

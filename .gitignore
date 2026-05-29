@@ -40,3 +40,4 @@ Thumbs.db
 inst/scripts/wkdir/
 inst/scripts/output/
 Rplots.pdf
+e2e_validation_output/

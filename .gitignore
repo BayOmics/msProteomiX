@@ -41,3 +41,5 @@ inst/scripts/wkdir/
 inst/scripts/output/
 Rplots.pdf
 e2e_validation_output/
+
+e2e_validation_output_fp/

@@ -26,7 +26,11 @@ plot_venn <- function(ms_data, group_info,
 
   if (is.null(selected_groups)) selected_groups <- names(venn_list)
   if (length(selected_groups) < 2) stop("At least 2 groups needed for Venn plot.")
-  if (length(selected_groups) > 4) stop("ggvenn supports at most 4 groups.")
+  if (length(selected_groups) > 4) {
+    message(sprintf("  >>> %d groups detected. Venn diagram supports at most 4 groups, skipping.", length(selected_groups)))
+    message("  >>> Use plot_upset() for >4 groups.")
+    return(invisible(NULL))
+  }
 
   plot_list <- venn_list[selected_groups]
 

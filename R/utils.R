@@ -42,29 +42,74 @@ create_project <- function(project_dir) {
     if (!dir.exists(d)) dir.create(d, recursive = TRUE)
   }
 
-  # 复制脚本
+  # 复制脚本 (始终覆盖, 确保最新版本)
+  n_copied <- .copy_pkg_scripts(file.path(project_dir, "scripts"))
+
+  message(sprintf("\n>>> Project created: %s", project_dir))
+  message(sprintf("   scripts/  <- %d scripts (latest version)", n_copied))
+  message("   wkdir/    <- Place search results here")
+  message("   output/   <- Analysis output saved here")
+  message("\n>>> Next: Open scripts/01 in RStudio and Source")
+
+  invisible(project_dir)
+}
+
+
+#' 更新项目脚本到最新版本
+#'
+#' 将项目 scripts/ 目录中的脚本更新为当前安装的 msProteomiX 包版本。
+#' 仅覆盖包提供的脚本，用户自定义脚本不会被删除。
+#'
+#' @param scripts_dir 脚本目录路径 (默认自动检测当前项目)
+#' @return 不可见地返回更新的文件数
+#' @export
+#' @examples
+#' \dontrun{
+#' update_scripts()                    # 自动检测当前项目
+#' update_scripts("~/project/scripts") # 指定路径
+#' }
+update_scripts <- function(scripts_dir = NULL) {
+  # 自动检测
+  if (is.null(scripts_dir)) {
+    if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+      ctx <- tryCatch(rstudioapi::getSourceEditorContext(), error = function(e) NULL)
+      if (!is.null(ctx) && nchar(ctx$path) > 0) {
+        sd <- dirname(ctx$path)
+        if (basename(sd) == "scripts") scripts_dir <- sd
+      }
+    }
+    if (is.null(scripts_dir)) {
+      # 尝试从当前工作目录推断
+      candidate <- file.path(getwd(), "scripts")
+      if (dir.exists(candidate)) scripts_dir <- candidate
+    }
+    if (is.null(scripts_dir)) {
+      stop("Cannot auto-detect scripts directory. Please specify scripts_dir.")
+    }
+  }
+
+  n <- .copy_pkg_scripts(scripts_dir)
+  message(sprintf(">>> Updated %d scripts in: %s", n, scripts_dir))
+  invisible(n)
+}
+
+
+#' @keywords internal
+.copy_pkg_scripts <- function(dest_dir) {
   pkg_scripts <- system.file("scripts", package = "msProteomiX")
   if (nchar(pkg_scripts) == 0) {
-    stop("\u274c \u627e\u4e0d\u5230 msProteomiX \u5305\u7684\u811a\u672c\u76ee\u5f55\u3002\u8bf7\u786e\u4fdd\u5df2\u5b89\u88c5\u5305\u3002")
+    stop("Cannot find msProteomiX scripts. Is the package installed?")
   }
+  if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
 
   script_files <- list.files(pkg_scripts, full.names = TRUE)
   n_copied <- 0
   for (f in script_files) {
-    dest <- file.path(project_dir, "scripts", basename(f))
-    if (!file.exists(dest)) {
-      file.copy(f, dest)
-      n_copied <- n_copied + 1
-    }
+    dest <- file.path(dest_dir, basename(f))
+    file.copy(f, dest, overwrite = TRUE)
+    n_copied <- n_copied + 1
   }
-
-  message(sprintf("\n\u2705 \u9879\u76ee\u5df2\u521b\u5efa: %s", project_dir))
-  message(sprintf("   scripts/  \u2190 %d \u4e2a\u5206\u6790\u811a\u672c", n_copied))
-  message("   wkdir/    \u2190 \u5c06\u641c\u5e93\u7ed3\u679c\u653e\u5165\u6b64\u76ee\u5f55")
-  message("   output/   \u2190 \u5206\u6790\u7ed3\u679c\u81ea\u52a8\u4fdd\u5b58\u5728\u6b64")
-  message("\n>>> \u4e0b\u4e00\u6b65: \u5728 RStudio \u4e2d\u6253\u5f00 scripts/01_\u6570\u636e\u5bfc\u5165\u4e0e\u5206\u7ec4.R \u5e76 Source \u8fd0\u884c")
-
-  invisible(project_dir)
+  n_copied
 }
 
 
@@ -84,23 +129,61 @@ create_project <- function(project_dir) {
 #' @return 不可见地返回工作目录路径
 #' @export
 setup_workdir <- function() {
+  project_dir <- NULL
   if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
     ctx <- tryCatch(rstudioapi::getSourceEditorContext(), error = function(e) NULL)
     if (!is.null(ctx) && nchar(ctx$path) > 0) {
       script_dir <- dirname(ctx$path)
-      # 如果脚本在 scripts/ 子目录中, 则上移一级到项目根目录
       if (basename(script_dir) == "scripts") {
         project_dir <- dirname(script_dir)
       } else {
         project_dir <- script_dir
       }
       setwd(project_dir)
-      message(sprintf(">>> \u5de5\u4f5c\u76ee\u5f55: %s", project_dir))
-      return(invisible(project_dir))
+      message(sprintf(">>> Working directory: %s", project_dir))
     }
   }
-  message(sprintf(">>> \u5de5\u4f5c\u76ee\u5f55: %s", getwd()))
-  invisible(getwd())
+  if (is.null(project_dir)) {
+    project_dir <- getwd()
+    message(sprintf(">>> Working directory: %s", project_dir))
+  }
+
+  # 自动检查脚本是否需要更新
+  scripts_dir <- file.path(project_dir, "scripts")
+  if (dir.exists(scripts_dir)) {
+    .check_scripts_version(scripts_dir)
+  }
+
+  invisible(project_dir)
+}
+
+
+#' @keywords internal
+.check_scripts_version <- function(scripts_dir) {
+  pkg_scripts <- system.file("scripts", package = "msProteomiX")
+  if (nchar(pkg_scripts) == 0) return(invisible(NULL))
+
+  # 比较每个脚本文件的 MD5
+  pkg_files <- list.files(pkg_scripts, full.names = TRUE)
+  outdated <- character(0)
+
+  for (f in pkg_files) {
+    local_f <- file.path(scripts_dir, basename(f))
+    if (!file.exists(local_f)) {
+      outdated <- c(outdated, basename(f))
+    } else {
+      pkg_md5 <- tools::md5sum(f)
+      local_md5 <- tools::md5sum(local_f)
+      if (pkg_md5 != local_md5) {
+        outdated <- c(outdated, basename(f))
+      }
+    }
+  }
+
+  if (length(outdated) > 0) {
+    message(sprintf("  >>> %d script(s) outdated. Run update_scripts() to sync.",
+                    length(outdated)))
+  }
 }
 
 #' 正则转义辅助函数

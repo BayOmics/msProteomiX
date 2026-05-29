@@ -261,6 +261,29 @@ plot_ppi_network <- function(ppi_result,
 
   grDevices::dev.off()
 
+  # --- Save PNG (for HTML report) ---
+  grDevices::png(paste0(fname_base, ".png"),
+                 width = 10, height = 10, units = "in", res = 300)
+  graphics::par(mar = c(1, 1, 3, 1))
+  igraph::plot.igraph(
+    g,
+    layout           = lo,
+    vertex.color     = node_colors,
+    vertex.size      = node_sizes,
+    vertex.label     = igraph::V(g)$name,
+    vertex.label.cex = vertex_label_size,
+    vertex.label.color = "black",
+    vertex.frame.color = "grey50",
+    edge.color       = "grey70",
+    edge.width       = edge_widths,
+    main             = paste("Protein Network:", contrast)
+  )
+  graphics::legend("bottomleft",
+                   legend = c("Up-regulated", "Down-regulated", "Not significant"),
+                   fill   = c("#E64B35", "#3C5488", "#B8B8B8"),
+                   bty    = "n", cex = 0.8)
+  grDevices::dev.off()
+
   # --- Save edge list as CSV ---
   utils::write.csv(edges, paste0(fname_base, "_edges.csv"), row.names = FALSE)
 

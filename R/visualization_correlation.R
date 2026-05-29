@@ -87,6 +87,7 @@ plot_corr_heatmap <- function(ms_data, group_info,
   base_name <- file.path(output_dir, paste0(project_name, "_", fname))
   utils::write.csv(as.data.frame(r2_mat), paste0(base_name, ".csv"))
   ggplot2::ggsave(paste0(base_name, ".pdf"), p, width = pdf_w, height = pdf_h)
+  ggplot2::ggsave(paste0(base_name, ".png"), p, width = pdf_w, height = pdf_h, dpi = 300)
   print(p)
   message(sprintf("  \u2705 Generated: %s", fname))
 

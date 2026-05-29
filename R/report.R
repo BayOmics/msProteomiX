@@ -124,6 +124,7 @@ generate_report <- function(output_dir = "output",
   section_order <- c(
     "Identification" = "Identification & Quantification",
     "Venn"           = "Venn Diagram",
+    "UpSet"          = "UpSet Diagram",
     "PCA"            = "PCA Analysis",
     "CV"             = "Coefficient of Variation",
     "Corr"           = "Correlation Analysis",
@@ -131,12 +132,14 @@ generate_report <- function(output_dir = "output",
     "Volcano"        = "Volcano Plot",
     "Diff"           = "Differential Expression",
     "Heatmap"        = "Heatmap",
+    "TopHeatmap"     = "Top Protein Heatmap",
+    "Coverage"       = "Sequence Coverage",
     "GO"             = "GO Enrichment",
     "KEGG"           = "KEGG Enrichment",
+    "Reactome"       = "Reactome Enrichment",
     "GSEA"           = "GSEA Analysis",
     "Marker"         = "Marker Gene Expression",
-    "PPI"            = "Protein-Protein Interaction",
-    "Reactome"       = "Reactome Enrichment"
+    "PPI"            = "Protein Network"
   )
 
   for (key in names(section_order)) {
@@ -203,24 +206,27 @@ generate_report <- function(output_dir = "output",
   patterns <- c(
     "Identification" = "Identification",
     "Venn"           = "Venn",
+    "UpSet"          = "UpSet",
     "PCA"            = "PCA",
     "CV"             = "CV_",
     "Corr"           = "Corr",
     "QC"             = "QC_",
     "Volcano"        = "Volcano",
     "Diff"           = "Diff_",
-    "Heatmap"        = "Heatmap",
+    "Heatmap"        = "(?<!Top)Heatmap",
+    "TopHeatmap"     = "TopHeatmap",
+    "Coverage"       = "Coverage",
     "GO"             = "GO_",
     "KEGG"           = "KEGG_",
+    "Reactome"       = "Reactome",
     "GSEA"           = "GSEA",
     "Marker"         = "Marker",
-    "PPI"            = "PPI_",
-    "Reactome"       = "Reactome"
+    "PPI"            = "PPI_"
   )
 
   sections <- list()
   for (key in names(patterns)) {
-    matched <- image_files[grepl(patterns[key], basenames, ignore.case = TRUE)]
+    matched <- image_files[grepl(patterns[key], basenames, ignore.case = TRUE, perl = TRUE)]
     if (length(matched) > 0) sections[[key]] <- matched
   }
   sections
@@ -240,6 +246,7 @@ generate_report <- function(output_dir = "output",
   section_order <- c(
     "Identification" = "Identification & Quantification",
     "Venn"           = "Venn Diagram",
+    "UpSet"          = "UpSet Diagram",
     "PCA"            = "PCA Analysis",
     "CV"             = "Coefficient of Variation",
     "Corr"           = "Correlation Analysis",
@@ -247,12 +254,14 @@ generate_report <- function(output_dir = "output",
     "Volcano"        = "Volcano Plot",
     "Diff"           = "Differential Expression",
     "Heatmap"        = "Heatmap",
+    "TopHeatmap"     = "Top Protein Heatmap",
+    "Coverage"       = "Sequence Coverage",
     "GO"             = "GO Enrichment",
     "KEGG"           = "KEGG Enrichment",
+    "Reactome"       = "Reactome Enrichment",
     "GSEA"           = "GSEA Analysis",
     "Marker"         = "Marker Gene Expression",
-    "PPI"            = "Protein-Protein Interaction",
-    "Reactome"       = "Reactome Enrichment"
+    "PPI"            = "Protein Network"
   )
 
   html <- c(

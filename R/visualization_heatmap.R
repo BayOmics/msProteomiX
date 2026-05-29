@@ -156,7 +156,14 @@ plot_diff_heatmap <- function(diff_result,
   # Must explicitly draw in PDF device
   grid::grid.newpage()
   grid::grid.draw(ph$gtable)
+  grDevices::dev.off()
 
+  # Save PNG (for HTML report embedding)
+  grDevices::png(paste0(fname_base, ".png"),
+                 width = 8, height = max(6, top_n * 0.15 + 2),
+                 units = "in", res = 300)
+  grid::grid.newpage()
+  grid::grid.draw(ph$gtable)
   grDevices::dev.off()
 
   # Save source data as CSV
@@ -170,7 +177,7 @@ plot_diff_heatmap <- function(diff_result,
   grid::grid.newpage()
   grid::grid.draw(ph$gtable)
 
-  message(sprintf(">>> Heatmap saved: %s (.pdf + .csv)", basename(fname_base)))
+  message(sprintf(">>> Heatmap saved: %s (.pdf + .png + .csv)", basename(fname_base)))
   message(sprintf("    Showing %d DE proteins (%d UP, %d DOWN)",
                   nrow(diff_df),
                   sum(diff_df$diff == "UP"),
@@ -285,6 +292,14 @@ plot_top_heatmap <- function(diff_result,
   grid::grid.draw(ph$gtable)
   grDevices::dev.off()
 
+  # Save PNG (for HTML report embedding)
+  grDevices::png(paste0(fname_base, ".png"),
+                 width = 8, height = max(5, top_n * 0.18 + 2),
+                 units = "in", res = 300)
+  grid::grid.newpage()
+  grid::grid.draw(ph$gtable)
+  grDevices::dev.off()
+
   # Save CSV
   out_df <- as.data.frame(expr_mat)
   out_df$Gene <- rownames(expr_mat)
@@ -294,6 +309,6 @@ plot_top_heatmap <- function(diff_result,
   grid::grid.newpage()
   grid::grid.draw(ph$gtable)
 
-  message(sprintf(">>> Top heatmap saved: %s", basename(fname_base)))
+  message(sprintf(">>> Top heatmap saved: %s (.pdf + .png)", basename(fname_base)))
   invisible(ph)
 }

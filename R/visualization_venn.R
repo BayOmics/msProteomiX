@@ -78,15 +78,29 @@ plot_upset <- function(ms_data, group_info,
   }
 
   pdf_name <- file.path(output_dir, paste0(project_name, "_UpSet.pdf"))
+  png_name <- file.path(output_dir, paste0(project_name, "_UpSet.png"))
+
+  # Save PDF
   grDevices::pdf(pdf_name, width = 8, height = 6, onefile = FALSE)
   tryCatch({
     p <- UpSetR::upset(UpSetR::fromList(venn_list), order.by = "freq",
                         mainbar.y.label = "Protein Intersections",
                         sets.x.label = "Proteins Per Group")
     print(p)
-    message("  Generated: UpSet plot")
   }, error = function(e) message(paste("  UpSet plot failed:", e$message)))
   grDevices::dev.off()
+
+  # Save PNG (for HTML report)
+  grDevices::png(png_name, width = 8, height = 6, units = "in", res = 300)
+  tryCatch({
+    p <- UpSetR::upset(UpSetR::fromList(venn_list), order.by = "freq",
+                        mainbar.y.label = "Protein Intersections",
+                        sets.x.label = "Proteins Per Group")
+    print(p)
+  }, error = function(e) message(paste("  UpSet PNG failed:", e$message)))
+  grDevices::dev.off()
+
+  message("  Generated: UpSet plot (.pdf + .png)")
 }
 
 

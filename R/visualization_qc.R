@@ -610,7 +610,315 @@ plot_qc_cys_alkylation <- function(ms_data, group_info = NULL,
 
 
 # ==============================================================================
-# 10. QC Panel — all-in-one
+# 10. PSM over Retention Time (per sample)
+# ==============================================================================
+
+#' Plot PSM count over Retention Time
+#'
+#' Histogram of PSM identifications across retention time bins.
+#' Requires "Retention" column in PSM data.
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @param n_bins Number of RT bins (default 50)
+#' @return ggplot object or NULL
+#' @export
+plot_qc_rt_distribution <- function(ms_data, group_info = NULL,
+                                     output_dir = "output",
+                                     project_name = "Project",
+                                     n_bins = 50) {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data. Skipping RT distribution.")
+    return(invisible(NULL))
+  }
+
+  rt_col <- .find_column(psm_df, c("Retention", "RT", "EG.ApexRT"))
+  if (is.null(rt_col)) {
+    message(">>> No RT column found. Skipping RT distribution.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+  psm_df$RT_val <- as.numeric(psm_df[[rt_col]])
+  psm_df <- psm_df[!is.na(psm_df$RT_val), ]
+  if (nrow(psm_df) == 0) return(invisible(NULL))
+
+  n_groups <- length(unique(psm_df$qc_group))
+
+  p <- ggplot2::ggplot(psm_df, ggplot2::aes(x = RT_val, fill = qc_group)) +
+    ggplot2::geom_histogram(bins = n_bins, alpha = 0.7,
+                            position = "identity", color = "white", linewidth = 0.1) +
+    ggplot2::facet_wrap(~ qc_sample, scales = "free_y") +
+    ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "PSM Identifications over Retention Time",
+                  x = "Retention Time (min)", y = "PSM Count", fill = "Group") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = ggplot2::element_text(size = 7),
+      strip.text = ggplot2::element_text(size = 7)
+    )
+
+  save_plot_and_data(p, data.frame(Sample = psm_df$qc_sample,
+                                    Group = psm_df$qc_group,
+                                    RT = psm_df$RT_val),
+                     project_name, "QC_RT_Distribution",
+                     output_dir = output_dir, width = 12, height = 8)
+  p
+}
+
+
+# ==============================================================================
+# 11. Mass Error (ppm) distribution
+# ==============================================================================
+
+#' Plot mass error (ppm) distribution
+#'
+#' Density plot of mass accuracy in ppm.
+#' Requires "Calibrated Observed Mass" and "Calculated Peptide Mass" columns.
+#' Currently available for FragPipe only.
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_mass_error <- function(ms_data, group_info = NULL,
+                                output_dir = "output",
+                                project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  psm_df <- ms_data$psms
+  if (is.null(psm_df) || nrow(psm_df) == 0) {
+    message(">>> No PSM data. Skipping mass error plot.")
+    return(invisible(NULL))
+  }
+
+  obs_col <- .find_column(psm_df, c("Calibrated Observed Mass", "Observed Mass"))
+  theo_col <- .find_column(psm_df, c("Calculated Peptide Mass", "Calculated Mass"))
+
+  if (is.null(obs_col) || is.null(theo_col)) {
+    message(">>> No mass columns found. Skipping mass error plot.")
+    return(invisible(NULL))
+  }
+
+  psm_df <- .psm_with_groups(psm_df, group_info, ms_data$sample_names)
+  obs_mass <- as.numeric(psm_df[[obs_col]])
+  theo_mass <- as.numeric(psm_df[[theo_col]])
+  ppm <- (obs_mass - theo_mass) / theo_mass * 1e6
+  psm_df$ppm <- ppm
+  psm_df <- psm_df[!is.na(psm_df$ppm) & is.finite(psm_df$ppm), ]
+  if (nrow(psm_df) == 0) return(invisible(NULL))
+
+  med_ppm <- stats::median(psm_df$ppm, na.rm = TRUE)
+  n_groups <- length(unique(psm_df$qc_group))
+
+  p <- ggplot2::ggplot(psm_df, ggplot2::aes(x = ppm, fill = qc_group)) +
+    ggplot2::geom_histogram(bins = 80, alpha = 0.7, position = "identity",
+                            color = "white", linewidth = 0.1) +
+    ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "grey30") +
+    ggplot2::geom_vline(xintercept = med_ppm, linetype = "solid",
+                        color = "#E64B35", linewidth = 0.8) +
+    ggplot2::annotate("text", x = med_ppm, y = Inf, vjust = 2, hjust = -0.1,
+                      label = sprintf("Median = %.2f ppm", med_ppm),
+                      color = "#E64B35", fontface = "bold", size = 3.5) +
+    ggplot2::facet_wrap(~ qc_sample, scales = "free_y") +
+    ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
+    ggplot2::coord_cartesian(xlim = c(-20, 20)) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Mass Error Distribution",
+                  x = "Mass Error (ppm)", y = "PSM Count", fill = "Group") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = ggplot2::element_text(size = 7),
+      strip.text = ggplot2::element_text(size = 7)
+    )
+
+  save_plot_and_data(p, data.frame(Sample = psm_df$qc_sample,
+                                    Group = psm_df$qc_group,
+                                    ppm = psm_df$ppm),
+                     project_name, "QC_Mass_Error",
+                     output_dir = output_dir, width = 12, height = 8)
+  p
+}
+
+
+# ==============================================================================
+# 12. Missing Value Pattern (protein level)
+# ==============================================================================
+
+#' Plot missing value pattern
+#'
+#' Bar chart of missing value percentage per sample + heatmap of missing pattern.
+#' Uses protein-level abundance matrix (works for all engines).
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_missing_values <- function(ms_data, group_info = NULL,
+                                    output_dir = "output",
+                                    project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  prot_mat <- ms_data$proteins
+  if (is.null(prot_mat) || nrow(prot_mat) == 0) {
+    message(">>> No protein data. Skipping missing value plot.")
+    return(invisible(NULL))
+  }
+
+  # Compute per-sample missing %
+  total_prots <- nrow(prot_mat)
+  is_log2 <- isTRUE(ms_data$is_log2)
+
+  missing_pct <- sapply(colnames(prot_mat), function(s) {
+    vals <- prot_mat[, s]
+    if (is_log2) {
+      n_missing <- sum(is.na(vals) | is.nan(vals))
+    } else {
+      n_missing <- sum(is.na(vals) | is.nan(vals) | vals == 0)
+    }
+    round(n_missing / total_prots * 100, 2)
+  })
+
+  plot_df <- data.frame(
+    Sample = names(missing_pct),
+    Missing_Pct = as.numeric(missing_pct),
+    stringsAsFactors = FALSE
+  )
+
+  # Add group info
+  if (!is.null(group_info)) {
+    plot_df$Group <- group_info$user_group[match(plot_df$Sample,
+                                                  group_info$sample_name)]
+  } else {
+    plot_df$Group <- "All"
+  }
+  plot_df$Group[is.na(plot_df$Group)] <- "Unknown"
+
+  n_groups <- length(unique(plot_df$Group))
+  plot_df$Sample <- factor(plot_df$Sample, levels = plot_df$Sample)
+
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = Sample, y = Missing_Pct,
+                                               fill = Group)) +
+    ggplot2::geom_bar(stat = "identity", color = "white", width = 0.7) +
+    ggplot2::geom_text(ggplot2::aes(label = paste0(round(Missing_Pct, 1), "%")),
+                       vjust = -0.3, size = 3) +
+    ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Missing Value Percentage per Sample",
+                  x = NULL, y = "Missing Values (%)",
+                  subtitle = sprintf("Total proteins: %d", total_prots)) +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 8)
+    )
+
+  save_plot_and_data(p, plot_df, project_name, "QC_Missing_Values",
+                     output_dir = output_dir, width = 10, height = 6)
+  p
+}
+
+
+# ==============================================================================
+# 13. Sample Intensity Distribution (protein level)
+# ==============================================================================
+
+#' Plot sample intensity distribution
+#'
+#' Box + violin plot of log2 protein intensities per sample.
+#' Useful for assessing normalization effects and outlier samples.
+#'
+#' @param ms_data MsDataSet object
+#' @param group_info Group info data.frame
+#' @param output_dir Output directory
+#' @param project_name Project name
+#' @return ggplot object or NULL
+#' @export
+plot_qc_intensity_boxplot <- function(ms_data, group_info = NULL,
+                                       output_dir = "output",
+                                       project_name = "Project") {
+  stopifnot(inherits(ms_data, "MsDataSet"))
+  ensure_output_dir(output_dir)
+
+  prot_mat <- ms_data$proteins
+  if (is.null(prot_mat) || nrow(prot_mat) == 0) {
+    message(">>> No protein data. Skipping intensity boxplot.")
+    return(invisible(NULL))
+  }
+
+  is_log2 <- isTRUE(ms_data$is_log2)
+
+  # Reshape to long format
+  long_list <- list()
+  for (s in colnames(prot_mat)) {
+    vals <- prot_mat[, s]
+    if (!is_log2) {
+      vals[vals == 0] <- NA
+      vals <- log2(vals)
+    }
+    vals <- vals[!is.na(vals) & is.finite(vals)]
+    if (length(vals) == 0) next
+    long_list[[s]] <- data.frame(
+      Sample = s,
+      Log2_Intensity = vals,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  if (length(long_list) == 0) return(invisible(NULL))
+  long_df <- do.call(rbind, long_list)
+
+  # Add group info
+  if (!is.null(group_info)) {
+    long_df$Group <- group_info$user_group[match(long_df$Sample,
+                                                  group_info$sample_name)]
+  } else {
+    long_df$Group <- "All"
+  }
+  long_df$Group[is.na(long_df$Group)] <- "Unknown"
+
+  n_groups <- length(unique(long_df$Group))
+  long_df$Sample <- factor(long_df$Sample,
+                           levels = unique(long_df$Sample))
+
+  p <- ggplot2::ggplot(long_df,
+                        ggplot2::aes(x = Sample, y = Log2_Intensity,
+                                     fill = Group)) +
+    ggplot2::geom_violin(alpha = 0.3, scale = "width", width = 0.8) +
+    ggplot2::geom_boxplot(width = 0.15, outlier.size = 0.3, alpha = 0.8) +
+    ggplot2::scale_fill_manual(values = mspx_colors(n_groups)) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(title = "Sample Intensity Distribution",
+                  x = NULL, y = "log2(Intensity)") +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 8)
+    )
+
+  save_plot_and_data(p,
+                     data.frame(Sample = long_df$Sample,
+                                Group = long_df$Group,
+                                Log2_Intensity = long_df$Log2_Intensity),
+                     project_name, "QC_Intensity_Distribution",
+                     output_dir = output_dir, width = 10, height = 6)
+  p
+}
+
+
+# ==============================================================================
+# 14. QC Panel — all-in-one
 # ==============================================================================
 
 #' Generate QC evaluation panel (all QC plots)
@@ -663,8 +971,20 @@ plot_qc_panel <- function(ms_data, group_info = NULL,
   plots$cys_alk <- .try("Cys/Alkylation",
     plot_qc_cys_alkylation(ms_data, group_info, output_dir, project_name))
 
+  plots$rt_dist <- .try("RT distribution",
+    plot_qc_rt_distribution(ms_data, group_info, output_dir, project_name))
+
+  plots$mass_error <- .try("Mass error",
+    plot_qc_mass_error(ms_data, group_info, output_dir, project_name))
+
+  plots$missing_val <- .try("Missing values",
+    plot_qc_missing_values(ms_data, group_info, output_dir, project_name))
+
+  plots$intensity <- .try("Intensity distribution",
+    plot_qc_intensity_boxplot(ms_data, group_info, output_dir, project_name))
+
   n_ok <- sum(!sapply(plots, is.null))
-  message(sprintf(">>> QC panel complete: %d/%d plots generated.", n_ok, 9))
+  message(sprintf(">>> QC panel complete: %d/%d plots generated.", n_ok, length(plots)))
   invisible(plots)
 }
 

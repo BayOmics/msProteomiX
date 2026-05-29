@@ -295,7 +295,8 @@ parse_spectronaut <- function(path) {
     "FG.Quantity"                = "Intensity",
     "R.Label"                    = "Spectrum File",
     "R.FileName"                 = "Run",
-    "PG.ProteinAccessions"       = "Protein"
+    "PG.ProteinAccessions"       = "Protein",
+    "EG.ApexRT"                  = "Retention"
   )
 
   # 找到实际存在的列

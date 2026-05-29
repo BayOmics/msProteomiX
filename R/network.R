@@ -4,6 +4,9 @@
 
 #' Run PPI network analysis using STRINGdb
 #'
+#' NOTE: This function requires internet access (queries string-db.org).
+#' There is no offline alternative for PPI network analysis.
+#'
 #' Extract protein-protein interactions from STRING database for
 #' differentially expressed proteins.
 #'

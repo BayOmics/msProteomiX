@@ -24,6 +24,10 @@ run_ppi_network(
 List with components: nodes, edges, string_ids, n_mapped
 }
 \description{
+NOTE: This function requires internet access (queries string-db.org).
+There is no offline alternative for PPI network analysis.
+}
+\details{
 Extract protein-protein interactions from STRING database for
 differentially expressed proteins.
 }

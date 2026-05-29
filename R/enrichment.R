@@ -170,6 +170,10 @@ plot_go_bar <- function(go_df,
 
 #' Run KEGG pathway enrichment analysis
 #'
+#' NOTE: This function requires internet access (calls KEGG REST API).
+#' For offline analysis, use run_go_enrichment() or
+#' run_gsea_analysis(gene_sets = "go_bp") instead.
+#'
 #' @param ms_data MsDataSet object (used when diff_result is NULL)
 #' @param group_info Group info data.frame (used when diff_result is NULL)
 #' @param diff_result Optional. Output from run_diff_analysis(). If provided,
@@ -184,6 +188,8 @@ run_kegg_enrichment <- function(ms_data = NULL, group_info = NULL,
                                 org_db = "org.Hs.eg.db",
                                 organism = "hsa",
                                 top_n = 15) {
+  message(">>> NOTE: KEGG enrichment requires internet (KEGG REST API).")
+  message("    For offline analysis, use run_go_enrichment() or run_gsea_analysis(gene_sets='go_bp').")
   if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
     stop("Please install clusterProfiler: BiocManager::install('clusterProfiler')")
   }
@@ -348,6 +354,9 @@ run_reactome_enrichment <- function(ms_data = NULL, group_info = NULL,
                                     top_n = 20) {
   if (!requireNamespace("ReactomePA", quietly = TRUE)) {
     stop("Please install ReactomePA: BiocManager::install('ReactomePA')")
+  }
+  if (!requireNamespace("reactome.db", quietly = TRUE)) {
+    message(">>> NOTE: reactome.db required. Install: BiocManager::install('reactome.db')")
   }
   if (!requireNamespace(org_db, quietly = TRUE)) {
     stop(paste("Please install", org_db, ": BiocManager::install('", org_db, "')"))

@@ -1,0 +1,95 @@
+Panel,Source,UniProt_ID,Gene,Description,Match_By
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P48059,LIMS1,LIM and senescent cell antigen-like-containing domain protein 1,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P04899,GNAI2,Guanine nucleotide-binding protein G(i) subunit alpha-2,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q15286,RAB35,Ras-related protein Rab-35,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P06576,ATP5F1B,ATP synthase subunit beta,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q93084,ATP2A3,Sarcoplasmic/endoplasmic reticulum calcium ATPase 3,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P05556,ITGB1,Integrin beta-1,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P48735,IDH2,Isocitrate dehydrogenase [NADP] mitochondrial,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P40197,GP5,Platelet glycoprotein V,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P24557,TBXAS1,Thromboxane-A synthase,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P05141,SLC25A5,ADP/ATP translocase 2,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P30048,PRDX3,Thioredoxin-dependent peroxide reductase mitochondrial,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P14625,HSP90B1,Endoplasmin,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P23229,ITGA6,Integrin alpha-6,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,O60610,DIAPH1,Protein diaphanous homolog 1,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,O43182,ARHGAP6,Rho GTPase-activating protein 6,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P10809,HSPD1,60 kDa heat shock protein mitochondrial,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P10720,PF4V1,Platelet factor 4 variant,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q8TC12,RDH11,Retinol dehydrogenase 11,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q9NR12,PDLIM7,PDZ and LIM domain protein 7,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P61106,RAB14,Ras-related protein Rab-14,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q86YW5,TREML1,Trem-like transcript 1 protein,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q96AP7,ECSIT,Evolutionarily conserved signaling intermediate in Toll pathway,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q14165,MLEC,Malectin,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q9BX67,JAM3,Junctional adhesion molecule C,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,Q9Y277,VDAC3,Voltage-dependent anion-selective channel protein 3,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P40926,MDH2,Malate dehydrogenase mitochondrial,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P45880,VDAC2,Voltage-dependent anion-selective channel protein 2,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P16615,ATP2A2,Sarcoplasmic/endoplasmic reticulum calcium ATPase 2,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P62873,GNB1,Guanine nucleotide-binding protein G(I)/G(S)/G(T) subunit beta-1,uniprot
+PLT_Gao2026,Gao 2026 EMBO Mol Med,P21796,VDAC1,Voltage-dependent anion-selective channel protein 1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P21333,FLNA,Filamin-A,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,Q9Y490,TLN1,Talin-1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P35579,MYH9,Myosin-9,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P60709,ACTB,Actin cytoplasmic 1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P18206,VCL,Vinculin,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P12814,ACTN1,Alpha-actinin-1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P67936,TPM4,Tropomyosin alpha-4 chain,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P07996,THBS1,Thrombospondin-1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,Q9H4B7,TUBB1,Tubulin beta-1 chain,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P63104,YWHAZ,14-3-3 protein zeta/delta,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P68363,TUBA1B,Tubulin alpha-1B chain,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P08514,ITGA2B,Integrin alpha-IIb,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P00488,F13A1,Coagulation factor XIII A chain,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P07737,PFN1,Profilin-1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P05106,ITGB3,Integrin beta-3,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P04406,GAPDH,Glyceraldehyde-3-phosphate dehydrogenase,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,Q13201,MMRN1,Multimerin-1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P60660,MYL6,Myosin light polypeptide 6,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P23528,CFL1,Cofilin-1,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,Q9HBI1,PARVB,Beta-parvin,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,O95810,SDPR,Serum deprivation-response protein,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P68371,TUBB4B,Tubulin beta-4B chain,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P62328,TMSB4X,Thymosin beta-4,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P14618,PKM,Pyruvate kinase PKM,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P37802,TAGLN2,Transgelin-2,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,Q86UX7,FERMT3,Fermitin family homolog 3,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P61224,RAP1B,Ras-related protein Rap-1b,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P13796,LCP1,Plastin-2,uniprot
+PLT_Geyer2019,Geyer 2019 EMBO Mol Med,P02775,PPBP,Platelet basic protein,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,O75955,FLOT1,Flotillin-1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P00558,PGK1,Phosphoglycerate kinase 1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P00915,CA1,Carbonic anhydrase 1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P02042,HBD,Hemoglobin subunit delta,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P02549,SPTA1,Spectrin alpha chain erythrocytic 1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P02730,SLC4A1,Band 3 anion transport protein,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P04406,GAPDH,Glyceraldehyde-3-phosphate dehydrogenase,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P11142,HSPA8,Heat shock cognate 71 kDa protein,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P11171,EPB41,Protein 4.1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P11277,SPTB,Spectrin beta chain erythrocytic,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P13987,CD59,CD59 glycoprotein,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P16157,ANK1,Ankyrin-1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P16452,EPB42,Erythrocyte membrane protein band 4.2,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P23528,CFL1,Cofilin-1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P27105,STOM,Stomatin,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P30043,BLVRB,Flavin reductase (NADPH),uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P35611,ADD1,Alpha-adducin,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P35612,ADD2,Beta-adducin,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P37840,SNCA,Alpha-synuclein,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P48426,PIP4K2A,Phosphatidylinositol 5-phosphate 4-kinase type-2 alpha,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P53396,ACLY,ATP-citrate synthase,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P60891,PRPS1,Ribose-phosphate pyrophosphokinase 1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P61224,RAP1B,Ras-related protein Rap-1b,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P62826,RAN,GTP-binding nuclear protein Ran,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P62937,PPIA,Peptidyl-prolyl cis-trans isomerase A,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P68871,HBB,Hemoglobin subunit beta,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,P69905,HBA1,Hemoglobin subunit alpha,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,Q00013,MPP1,55 kDa erythrocyte membrane protein,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,Q9NTK5,OLA1,Obg-like ATPase 1,uniprot
+RBC_Gao2026,Gao 2026 EMBO Mol Med,Q9UQ80,PA2G4,Proliferation-associated protein 2G4,uniprot
+PBMC_Korff2025,Korff 2025 bioRxiv,,H4C1,Histone H4,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,,H2AZ1,Histone H2A.Z,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,,H2BC3,Histone H2B type 1-C/E/F/G/I,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,,H2BC14,Histone H2B type 2-F,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,,RAP1B,Ras-related protein Rap-1b,gene

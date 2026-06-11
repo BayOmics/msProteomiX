@@ -1,6 +1,6 @@
 Package: msProteomiX
 Title: Multi-Engine Mass Spectrometry Proteomics Data Processing
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: 
     person("Xi", "Wang", email = "wangxi@bayomics.com", role = c("aut", "cre"))
 Description: A comprehensive R package for processing and visualizing mass 
@@ -46,7 +46,8 @@ Suggests:
     devtools,
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    base64enc
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/BayOmics/msProteomiX

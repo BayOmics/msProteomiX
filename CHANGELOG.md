@@ -4,6 +4,43 @@ All notable changes to msProteomiX will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] - 2026-06-17
+
+### Added
+- **Plasma QC Module** — blood contamination index evaluation
+  - `calc_contamination_index()` with 4 marker panels (PLT/RBC/PBMC)
+  - `plot_ci_barplot()`, `plot_ci_summary()`, `plot_ci_heatmap()`
+  - `generate_plasma_report()` (EN/ZH, HTML + Chrome PDF)
+  - Script `17_血浆质控评估.R`
+- **QC Evaluation Panel** — 14 method evaluation plots in one call
+  - `plot_qc_panel()` (peptide length, charge, missed cleavage, modifications, GRAVY, pI, M/Z, cumulative intensity, Cys/alkylation, RT, mass error, missing values, intensity boxplot, protein rank)
+  - Scripts `10_QC方法评估.R`
+- **Summary Table** — per-sample QC metrics CSV
+  - `generate_summary_table()` (PSM, Peptide, ProteinGroups, 0-miss%, Cys%, Alk%)
+  - Script `18_数据总结表.R`
+- **Column Comparison Module** — chromatography column sensitivity comparison
+  - `import_alphatims_results()`, `plot_lod_curve()`
+  - Scripts `30–32`
+- **Additional analysis modules** — scripts `11–16`
+  - KEGG/Reactome enrichment, differential heatmap, PPI network, GSEA, marker boxplot, HTML report generation
+- **Windows Deployment** — one-click deployment for non-technical users
+  - `deploy/build_windows_bundle.sh` (Mac-side bundle builder)
+  - `deploy/windows_install.R` (Windows-side installer with Tsinghua mirrors)
+- **Automated Testing** — testthat framework with 9 smoke tests
+- **Branch Strategy** — `release/v0.3.0` frozen for market team
+
+### Fixed
+- PCA crash on zero-variance proteins (`prcomp(scale.=TRUE)` error)
+- Chrome path detection: empty Windows env vars producing phantom paths
+- Windows installer: `readline()` → `utils::menu()` for non-interactive mode
+- Windows installer: removed `grid` (base package) from install list
+
+### Changed
+- Repository cleanup: moved 8.5GB test data outside repo (13MB → clean)
+- Untracked `project_wiki/` from git (kept locally)
+- Cleaned up `.gitignore` (removed stale entries, added vignette artifacts)
+- Updated README with all 23 scripts and deployment instructions
+
 ## [0.2.0] - 2026-05-29
 
 ### Added

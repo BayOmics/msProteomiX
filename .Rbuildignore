@@ -15,3 +15,5 @@ inst/scripts/output
 ^e2e_validation_output
 ^\\.DS_Store$
 ^\\.Rhistory$
+^deploy$
+^msProteomiX_Windows

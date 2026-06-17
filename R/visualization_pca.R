@@ -40,6 +40,11 @@ plot_pca <- function(ms_data, group_info,
   prot_log[is.na(prot_log)] <- impute_val
   prot_log[is.infinite(as.matrix(prot_log))] <- impute_val
 
+  # Remove zero-variance proteins (constant across all samples after imputation)
+  # prcomp(scale.=TRUE) cannot handle these
+  row_vars <- apply(prot_log, 1, stats::var, na.rm = TRUE)
+  prot_log <- prot_log[row_vars > 0 & !is.na(row_vars), , drop = FALSE]
+
   # PCA
   pca_result <- stats::prcomp(t(prot_log), center = TRUE, scale. = TRUE)
 

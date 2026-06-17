@@ -12,7 +12,16 @@
 #' @keywords internal
 .find_chrome <- function() {
   candidates <- c(
+    # macOS
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    # Windows (standard install locations) — only add if env var is set
+    if (nzchar(Sys.getenv("ProgramFiles")))
+      file.path(Sys.getenv("ProgramFiles"), "Google/Chrome/Application/chrome.exe"),
+    if (nzchar(Sys.getenv("ProgramFiles(x86)")))
+      file.path(Sys.getenv("ProgramFiles(x86)"), "Google/Chrome/Application/chrome.exe"),
+    if (nzchar(Sys.getenv("LOCALAPPDATA")))
+      file.path(Sys.getenv("LOCALAPPDATA"), "Google/Chrome/Application/chrome.exe"),
+    # Linux
     Sys.which("google-chrome"),
     Sys.which("chromium-browser"),
     Sys.which("chromium"),

@@ -56,12 +56,25 @@ A comprehensive R package for processing and visualizing mass spectrometry prote
 ### Installation
 
 ```r
-# From source package
-install.packages("msProteomiX_0.3.0.tar.gz", repos = NULL, type = "source")
-
-# Or from GitHub
-devtools::install_github("BayOmics/msProteomiX")
+# One-liner install from GitHub (recommended)
+if (!requireNamespace("remotes")) install.packages("remotes")
+remotes::install_github("BayOmics/msProteomiX")
 ```
+
+> **Note**: Some optional features (GO/KEGG enrichment, GSEA, plasma QC) require
+> Bioconductor packages. Install them when needed:
+> ```r
+> if (!requireNamespace("BiocManager")) install.packages("BiocManager")
+> BiocManager::install(c("limma", "clusterProfiler", "org.Hs.eg.db"))
+> ```
+
+<details>
+<summary>Alternative: install from source tarball</summary>
+
+```r
+install.packages("msProteomiX_0.3.0.tar.gz", repos = NULL, type = "source")
+```
+</details>
 
 ### Interactive Mode (Recommended)
 

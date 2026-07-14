@@ -47,7 +47,8 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
-    base64enc
+    base64enc,
+    reticulate
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/BayOmics/msProteomiX

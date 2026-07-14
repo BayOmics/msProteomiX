@@ -34,5 +34,8 @@ utils::globalVariables(c(
   # network.R
   "from", "to", "combined_score", "degree_val",
   # enrichment.R (KEGG/Reactome)
-  "GeneRatio", "BgRatio"
+  "GeneRatio", "BgRatio",
+  # contamination_ratio.R
+  "rt_bin", "mean_cr", "ymin", "ymax",
+  "mz_values", "mobility_values", "plot_inten"
 ))

@@ -45,8 +45,22 @@ create_project <- function(project_dir) {
   # 复制脚本 (始终覆盖, 确保最新版本)
   n_copied <- .copy_pkg_scripts(file.path(project_dir, "scripts"))
 
+  # 复制使用手册 (如果存在)
+  n_manuals <- 0
+  manuals_src <- system.file("manuals", package = "msProteomiX")
+  if (nchar(manuals_src) > 0 && dir.exists(manuals_src)) {
+    manuals_dest <- file.path(project_dir, "manuals")
+    if (!dir.exists(manuals_dest)) dir.create(manuals_dest, recursive = TRUE)
+    manual_files <- list.files(manuals_src, full.names = TRUE)
+    for (mf in manual_files) {
+      file.copy(mf, file.path(manuals_dest, basename(mf)), overwrite = TRUE)
+      n_manuals <- n_manuals + 1
+    }
+  }
+
   message(sprintf("\n>>> Project created: %s", project_dir))
   message(sprintf("   scripts/  <- %d scripts (latest version)", n_copied))
+  if (n_manuals > 0) message(sprintf("   manuals/  <- %d manuals", n_manuals))
   message("   wkdir/    <- Place search results here")
   message("   output/   <- Analysis output saved here")
   message("\n>>> Next: Open scripts/01 in RStudio and Source")

@@ -88,8 +88,8 @@ RBC_Gao2026,Gao 2026 EMBO Mol Med,P69905,HBA1,Hemoglobin subunit alpha,uniprot
 RBC_Gao2026,Gao 2026 EMBO Mol Med,Q00013,MPP1,55 kDa erythrocyte membrane protein,uniprot
 RBC_Gao2026,Gao 2026 EMBO Mol Med,Q9NTK5,OLA1,Obg-like ATPase 1,uniprot
 RBC_Gao2026,Gao 2026 EMBO Mol Med,Q9UQ80,PA2G4,Proliferation-associated protein 2G4,uniprot
-PBMC_Korff2025,Korff 2025 bioRxiv,,H4C1,Histone H4,gene
-PBMC_Korff2025,Korff 2025 bioRxiv,,H2AZ1,Histone H2A.Z,gene
-PBMC_Korff2025,Korff 2025 bioRxiv,,H2BC3,Histone H2B type 1-C/E/F/G/I,gene
-PBMC_Korff2025,Korff 2025 bioRxiv,,H2BC14,Histone H2B type 2-F,gene
-PBMC_Korff2025,Korff 2025 bioRxiv,,RAP1B,Ras-related protein Rap-1b,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,P62805,H4C1,Histone H4,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,P0C0S5,H2AZ1,Histone H2A.Z,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,Q16778,H2BC3,Histone H2B type 1-C/E/F/G/I,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,Q99880,H2BC14,Histone H2B type 2-F,gene
+PBMC_Korff2025,Korff 2025 bioRxiv,P61224,RAP1B,Ras-related protein Rap-1b,gene

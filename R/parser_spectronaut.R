@@ -29,13 +29,13 @@ parse_spectronaut <- function(path) {
     candidates <- list.files(path, pattern = "_Report\\.(tsv|csv)$",
                               full.names = TRUE, ignore.case = TRUE)
     # 排除 Precise_Report (它是肽段级数据, 不是蛋白级报告)
-    candidates <- candidates[!grepl("Precise_Report", basename(candidates), ignore.case = TRUE)]
+    candidates <- candidates[!grepl("Precise_Report|Peptide_Report", basename(candidates), ignore.case = TRUE)]
     if (length(candidates) == 0) {
       # 尝试搜索所有 tsv/csv 文件并通过表头检测
       all_files <- list.files(path, pattern = "\\.(tsv|csv)$",
                                full.names = TRUE, ignore.case = TRUE)
       # 排除 IdentificationsOverview 和 group_info 等辅助文件
-      all_files <- all_files[!grepl("(group_info|IdentificationsOverview|Precise_Report|Overview)",
+      all_files <- all_files[!grepl("(group_info|IdentificationsOverview|Precise_Report|Peptide_Report|Overview)",
                                       basename(all_files), ignore.case = TRUE)]
       for (f in all_files) {
         if (.detect_spectronaut_header(f)) { report_file <- f; break }
@@ -50,7 +50,7 @@ parse_spectronaut <- function(path) {
       for (sd in subdirs) {
         sub_candidates <- list.files(sd, pattern = "_Report\\.(tsv|csv)$",
                                       full.names = TRUE, ignore.case = TRUE)
-        sub_candidates <- sub_candidates[!grepl("Precise_Report", basename(sub_candidates),
+        sub_candidates <- sub_candidates[!grepl("Precise_Report|Peptide_Report", basename(sub_candidates),
                                                   ignore.case = TRUE)]
         if (length(sub_candidates) > 0) { report_file <- sub_candidates[1]; break }
       }

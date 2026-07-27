@@ -197,12 +197,22 @@ calc_contamination_index <- function(ms,
     sub_df <- panel_df[panel_df$Panel == panel_name, ]
     if (nrow(sub_df) == 0) return(list(rows = integer(0), total = 0L))
     match_by <- sub_df$Match_By[1]
-    if (match_by == "uniprot") {
+    if (match_by == "gene") {
+      genes <- sub_df$Gene[nzchar(sub_df$Gene)]
+      rows <- if ("Gene" %in% colnames(prot_info) && length(genes) > 0) {
+        .match_markers_gene(genes, prot_info)
+      } else integer(0)
+      # Fallback: if Gene matching failed, try UniProt ID
+      if (length(rows) == 0) {
+        ids <- sub_df$UniProt_ID[nzchar(sub_df$UniProt_ID)]
+        if (length(ids) > 0 && "Protein ID" %in% colnames(prot_info)) {
+          rows <- .match_markers_uniprot(ids, prot_info)
+          if (length(rows) > 0) message(sprintf("      %s: Gene column missing/empty, using UniProt fallback", panel_name))
+        }
+      }
+    } else {
       ids <- sub_df$UniProt_ID[nzchar(sub_df$UniProt_ID)]
       rows <- .match_markers_uniprot(ids, prot_info)
-    } else {
-      genes <- sub_df$Gene[nzchar(sub_df$Gene)]
-      rows <- .match_markers_gene(genes, prot_info)
     }
     list(rows = rows, total = nrow(sub_df))
   }
